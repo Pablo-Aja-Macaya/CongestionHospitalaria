@@ -124,17 +124,6 @@ datos.seleccionados$time.HOSP.prev.ICU <- apply(datos.seleccionados[,c('prev.hos
 ##########################################
 # ---- Proporción de edades y sexos ---- #
 ##########################################
-
-# ---- Individuos en cada rango de edad ----
-get.age.intervals <- function(age.vector, interval.size=5){
-  age.range <- range(age.vector, na.rm=T)
-  breaks = seq(age.range[1], age.range[2], by=interval.size)
-  age.range.cut = cut(age.vector, breaks, right=FALSE) 
-  age.range.freq = table(age.range.cut) 
-  return(age.range.freq)
-}
-interval.size <- 10
-
 # Ficheros necesarios:
   # - Fichero que indique individuos infectados y hospitalizados, por área sanitaria, con edad y sexo 
   #   Estructura: {area;estado;edad;sexo}. De este se sacan los siguientes datos:
@@ -142,13 +131,22 @@ interval.size <- 10
         # Hospitalizados en cada área sanitaria según rango de edades y sexo (HOSP)
   # - Número de camas en planta y UCI para cada área sanitaria (area;camas.planta;camas.uci)
 
-### DATOS DE PRUEBA ###
-complete.cases.df <- data.frame(area=rep(c('CHUAC','CHUS','HULA', 'CHUVI'), len=nrow(datos.seleccionados)),
-                                estado = rep(c('INF','HOSP'), len=nrow(datos.seleccionados)),
-                                age = datos.seleccionados$age, sex = datos.seleccionados$sex)
+# ---- Individuos en cada rango de edad ----
+get.age.intervals <- function(age.vector, interval.size=10, range.min=0, range.max=110){
+  breaks = seq(range.min, range.max, by=interval.size)
+  age.range.cut = cut(age.vector, breaks, right=FALSE) 
+  age.range.freq = table(age.range.cut) 
+  return(age.range.freq)
+}
+interval.size <- 10
+range.min=0
+range.max=110
 
+# ---- Meter grupos de edad en el dataframe ----
+datos.seleccionados <- datos.seleccionados %>% mutate(age.group = cut(age, breaks = seq(range.min, range.max, by=interval.size), right = F))
 
-
+### --- DATOS DE PRUEBA --- ###
+datos.seleccionados$state <- rep(c('CASE','HOS'), len=nrow(datos.seleccionados))
 
 # ---- CASES ----
 women.age.interval <- get.age.intervals(subset(datos.seleccionados, sex=='Mujer')$age, interval.size)
@@ -167,22 +165,98 @@ man.age.prob <- men.age.interval/total.m
 plot(women.age.interval, col='red')
 plot(men.age.interval, col='blue')
 
-#### IMPORTANTE: COmpletar ####
 # ---- HOSP: ----
-# woman.age.hosp <- c(2321, 6248, 6347, 5235, 4306, 2666, 1336, 560, 94, 78)
-# total.w.hosp <- sum(woman.age.hosp)
-# man.age.hosp <- c(1650, 7142, 9637, 8118, 6345, 3831, 1478, 524, 90, 111)
-# total.m.hosp <- sum(man.age.hosp)
-# total.hosp <- total.w.hosp + total.m.hosp
-# 
-# prob.w.hosp <- total.w.hosp/total.hosp
-# prob.m.hosp <- total.m.hosp/total.hosp
-# woman.age.prob.hosp <- woman.age.hosp/total.w.hosp # sum(woman.age.prob.hosp)=1
-# man.age.prob.hosp <- man.age.hosp/total.m.hosp     # sum(man.age.prob.hosp)=1
-# 
-# # Proporciones muestrales de hospitalizados:
-# prob.rc.woman <- woman.age.hosp/woman.age
-# prob.rc.man <- man.age.hosp/man.age
+women.age.hosp.interval <-  get.age.intervals(subset(datos.seleccionados, sex=='Mujer' & state=='HOS')$age, interval.size)
+men.age.hosp.interval <- get.age.intervals(subset(datos.seleccionados, sex=='Hombre' & state=='HOS')$age, interval.size)
+
+total.w.hosp <- sum(women.age.hosp.interval)
+total.m.hosp <- sum(men.age.hosp.interval)
+total.hosp <- total.w.hosp + total.m.hosp
+
+prob.w.hosp <- total.w.hosp/total.hosp
+prob.m.hosp <- total.m.hosp/total.hosp
+woman.age.prob.hosp <- women.age.hosp.interval/total.w.hosp
+man.age.prob.hosp <- men.age.hosp.interval/total.m.hosp 
+
+# Proporciones muestrales de hospitalizados:
+prob.rc.woman <- women.age.hosp.interval/women.age.interval
+prob.rc.man <- men.age.hosp.interval/men.age.interval
+
+plot(women.age.hosp.interval, col='red')
+plot(men.age.hosp.interval, col='blue')
+
+
+
+##########################################
+# ------------- Weibull ---------------- #
+##########################################
+get.weibull.parameters <- function(vect, smoothness=2, extra.tittle=''){
+  # Funcion de densidades
+  density.function <- density(na.omit(vect), bw=smoothness)
+  
+  # Parámetros weibull
+  weibull_parameters = eweibull(abs(density.function$x), method = "mle")$parameters
+  shape <- weibull_parameters[1]
+  scale <- weibull_parameters[2]
+  
+  # Mostrar si alinean bien
+  plot(NA, xlim=c(0,max(density.function$x)), ylim=c(0,max(density.function$y)), xlab="", ylab="", main=glue('Scale: {round(scale,2)}, Shape: {round(shape,2)}, Bandwidth: {smoothness}\n{extra.tittle} '))
+  curve(dweibull(x, shape=shape, scale=scale, log=FALSE), from=0, to=max(density.function$x), add=TRUE, col='blue')
+  lines(density.function, col='red')
+  
+  return(weibull_parameters)
+}
+
+### IMPORTANTE ####
+# FALTAN parametros:
+# scale.ICU.HW
+
+# ---- Parámetros Weibull no condicionales ----
+# Parámetros con tiempo que pasan en HOSP antes de ir a UCI
+weibull.HW.ICU <- get.weibull.parameters(subset(datos.seleccionados, !is.na(time.HOSP) & !is.na(time.ICU) & state=='HOS')$time.HOSP)
+shape.HW.ICU <- weibull.HW.ICU[1]
+scale.HW.ICU <- weibull.HW.ICU[2]
+
+# Parámetros con tiempo que pasan en UCI antes de morir
+weibull.ICU.death <- get.weibull.parameters(subset(datos.seleccionados, death.while.inside==TRUE & !is.na(time.ICU) & state=='HOS')$time.ICU)
+shape.ICU.death <- weibull.ICU.death[1]
+scale.ICU.death <- weibull.ICU.death[2]
+
+# Parámetros con tiempo que pasan en HW antes del discharge
+weibull.HW.disc <- get.weibull.parameters(subset(datos.seleccionados, death.while.inside==FALSE & !is.na(time.HOSP) & state=='HOS')$time.HOSP)
+shape.HW.disc <- weibull.HW.disc[1]
+scale.HW.disc <- weibull.HW.disc[2]
+
+
+
+# ---- Parámetros Weibull condicionales ----
+get.conditional.weibull.parameters <- function(df, age.levels, s, target.column){
+  result.list = list()
+  for (l in age.levels){
+    target <- subset(df, age.group==l & sex==s)[[target.column]]
+    if (length(target) != 0){
+      p <- get.weibull.parameters(target, extra.tittle=glue('Sexo: {s}, Edad: {l}, Col: {target.column}'))
+      result.list[[l]] <- p
+    } else {
+      result.list[[l]] <- NA
+    }
+  }  
+  return (result.list)
+}
+# Parámetros con tiempo que pasan en HOSP antes de ir a UCI
+tmp <- subset(datos.seleccionados, !is.na(time.HOSP) & !is.na(time.ICU) & state=='HOS')
+weibull.HW.ICU.women <- get.conditional.weibull.parameters(tmp, levels(datos.seleccionados$age.group), 'Mujer', 'time.HOSP')
+weibull.HW.ICU.men <- get.conditional.weibull.parameters(tmp, levels(datos.seleccionados$age.group), 'Hombre', 'time.HOSP')
+
+# Parámetros con tiempo que pasan en UCI antes de morir
+tmp <- subset(datos.seleccionados, death.while.inside==TRUE & !is.na(time.ICU) & state=='HOS')
+weibull.ICU.death.women <- get.conditional.weibull.parameters(tmp, levels(datos.seleccionados$age.group), 'Mujer', 'time.ICU')
+weibull.ICU.death.men <- get.conditional.weibull.parameters(tmp, levels(datos.seleccionados$age.group), 'Hombre', 'time.ICU')
+
+# Parámetros con tiempo que pasan en HW antes del discharge
+tmp <- subset(datos.seleccionados, death.while.inside==FALSE & !is.na(time.HOSP) & state=='HOS')
+weibull.HW.disc.women <- get.conditional.weibull.parameters(tmp, levels(datos.seleccionados$age.group), 'Mujer', 'time.HOSP')
+weibull.HW.disc.men <- get.conditional.weibull.parameters(tmp, levels(datos.seleccionados$age.group), 'Hombre', 'time.HOSP')
 
 
 
@@ -218,48 +292,5 @@ prob.HW.disc <- nrow(subset(datos.seleccionados, !is.na(date.admission.hosp_HOS)
 prob.ICU.death <- nrow(subset(datos.seleccionados, !is.na(date.admission.hosp_UCI) & death.while.inside==TRUE))/sample.size
 # Probability of being transferred to hospital ward after being admitted in ICU
 prob.ICU.HW <- 0.78
-
-
-##########################################
-# ------------- Weibull ---------------- #
-##########################################
-get.weibull.parameters <- function(vector, smoothness=10){
-  # Funcion de densidades
-  density.function <- density(vector, bw=smoothness)
-  
-  # Parámetros weibull
-  weibull_parameters = eweibull(abs(density.function$x), method = "mle")$parameters
-  shape <- weibull_parameters[1]
-  scale <- weibull_parameters[2]
-  
-  # Mostrar si alinean bien
-  plot(NA, xlim=c(0,max(density.function$x)), ylim=c(0,max(density.function$y)), xlab="", ylab="", main=glue('Scale: {round(scale,2)}, Shape: {round(shape,2)}, Bandwidth: {smoothness} '))
-  curve(dweibull(x, shape=shape, scale=scale, log=FALSE), from=0, to=max(density.function$x), add=TRUE, col='blue')
-  lines(density.function, col='red')
-  
-  return(weibull_parameters)
-}
-
-## IMPORTANTE: SI SE QUIERE INCLUIR EL SEXO IGUAL CALCULAR LOS PARAMETROS EN BASE A ESO ##
-
-# Parámetros con tiempo que pasan en HOSP antes de ir a UCI
-weibull.HW.ICU <- get.weibull.parameters(subset(datos.seleccionados, !is.na(time.HOSP) & !is.na(time.ICU))$time.HOSP, 10)
-shape.HW.ICU <- weibull.HW.ICU[1]
-scale.HW.ICU <- weibull.HW.ICU[2]
-
-# Parámetros con tiempo que pasan en UCI antes de morir
-weibull.ICU.death <- get.weibull.parameters(subset(datos.seleccionados, death.while.inside==TRUE & !is.na(time.ICU))$time.ICU)
-shape.ICU.death <- weibull.ICU.death[1]
-scale.ICU.death <- weibull.ICU.death[2]
-
-# Parámetros con tiempo que pasan en HW antes del discharge
-weibull.HW.discharge<- get.weibull.parameters(subset(datos.seleccionados, death.while.inside==FALSE & !is.na(time.HOSP))$time.HOSP)
-shape.HW.discharge <- weibull.HW.discharge[1]
-scale.HW.discharge <- weibull.HW.discharge[2]
-
-### IMPORTANTE ####
-# Mas parametros:
-# scale.HW.disc
-# scale.ICU.HW
 
 
