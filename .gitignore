@@ -4,3 +4,9 @@ datos/
 informacion/
 
 *.png
+
+scripts_originales/
+
+.Rhistory
+
+.RData
