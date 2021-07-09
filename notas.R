@@ -6,6 +6,8 @@
 
 library(Rlab)
 library(data.table)
+# library(foreach)
+# library(doParallel)
 
 ##########################################
 # ---- Proporción de edades y sexos ---- #
@@ -51,6 +53,21 @@ hospitalizados <- subset(casos, estado=='HOS')
 women.age.interval <- get.group.total(casos, 'M')
 men.age.interval <- get.group.total(casos, 'H')
 
+# Calculo de la media de cada intervalo de edad (se usa en la simulación) Ej: Transforma "[20,30)" a 25
+# PELIGRO: si en los datos de input no se representan todos los grupos en ambos sexos 
+# la simulación podría estar mal equilibrada (ej: si sólo hay hombres de +70 y mujeres de -50 
+# la simulación no creará individuos hombres de 50 años)
+get.mean.age <- function(interval.vector){
+  tmp <- gsub("\\[|)", "", names(interval.vector))
+  rango.edad <- strsplit(tmp, ',')
+  age.interval <- unlist(lapply(strsplit(tmp, ','), function(x){mean(as.numeric(x))}))
+  return(age.interval)
+}
+women.mean.age.interval <- get.mean.age(women.age.interval)
+men.mean.age.interval <- get.mean.age(men.age.interval)
+
+
+# Proporciones
 total.m <- sum(men.age.interval)
 total.w <- sum(women.age.interval)
 total <- total.w + total.m
@@ -106,7 +123,7 @@ get.capacity <- function(df, hosp, unidad){
   return(stats)
 }
 
-get.capacity(capacidad, 'HULA', 'UCI')
+capacidad.asistencial <- get.capacity(capacidad, 'HULA', 'UCI')
 
 
 ##########################################
@@ -164,13 +181,13 @@ prob.ICU.HW <- 0.78
 
 
 
-
 ##########################################
 # ------------ Simulación -------------- #
 ##########################################
+n.HOS <- n.ICU <- n.Dead <- n.Discharge <- n.H.Dead <- n.ICU.Dead  <- matrix(rep(NA, length.out= m*n.time), nrow = m, ncol = n.time) 
 
 set.seed(123)
-for (j in 1:m){
+for (j in 1:m) {
   # cat("j=",j,"\n")
   if(j%%10==0) cat("j=",j,"\n")
   
@@ -185,14 +202,13 @@ for (j in 1:m){
   for (i in 1:n.ind){
     if (gender[j,i] == 1) {
       n.interval <- sample(1:length(woman.age.prob),size=1,prob=woman.age.prob)
-      age[j,i] <- age.interval[n.interval]
+      age[j,i] <- women.mean.age.interval[n.interval]
       prob.rc[j,i] <- prob.rc.woman[n.interval]
     } else {
-      n.interval <- sample(1:length(woman.age.prob),size=1,prob=man.age.prob)
-      age[j,i] <- age.interval[n.interval]
+      n.interval <- sample(1:length(man.age.prob),size=1,prob=man.age.prob)
+      age[j,i] <- men.mean.age.interval[n.interval]
       prob.rc[j,i] <- prob.rc.man[n.interval]
     }
-    
   }  
   
   # WARNING: No sé qué es esto
@@ -312,8 +328,6 @@ for (j in 1:m){
   # Number of patients in each state (HOS, ICU, Dead, Discharge)
   #=================================================================
   
-  n.HOS <- n.ICU <- n.Dead <- n.Discharge <- n.H.Dead <- n.ICU.Dead  <- matrix(rep(NA, length.out= m*n.time), nrow = m, ncol = n.time) 
-  
   for (k in 1:n.time){
     n.HOS[j,k] <- length(which(state[j, ,k]=="H"))
     n.ICU[j,k] <- length(which(state[j, ,k]=="ICU"))
@@ -323,7 +337,6 @@ for (j in 1:m){
     n.Dead[j,k] <- n.H.Dead[j,k] + n.ICU.Dead[j,k]
   }
 } # end j in m
-
 
 
 nHOS <- nICU <- nDead <- nDischarge <- nH.Dead <- nICU.Dead  <- rep(0, length.out= n.time) 
@@ -346,5 +359,24 @@ plot(t, nDischarge, type="l", lty=1, lwd=2, col=1)
 barplot(nDischarge)
 
 
+# Ver si en algún momento se superó el número de camas
+cap <- 50 #capacidad.asistencial$average_total
+plot(NA, xlim=c(0,n.time), ylim=c(0,100), xlab="", ylab="")
+abline(h=cap, col='red')
+for(j in 1:m){
+  # Para cada simulación ver en cuántos días hay más gente en UCI y Hospital que camas
+  lines(n.ICU[j,]+n.HOS[j,], col=alpha('black', 0.2))
+  # c <- (sum(cap <= n.ICU[j,]+n.HOS[j,], na.rm=T))
+  # if (c!=0){
+  #   lines(n.ICU[j,]+n.HOS[j,], col=rand_color(1))
+  #   
+  # }
+}
+lines(nHOS, type="l",lty=1, lwd=2, col='green')
+lines(nICU, type="l",lty=1, lwd=2, col='red')
+lines(nHOS+nICU, type="l",lty=1, lwd=2, col='blue')
 
-  
+# Número de días que se sobrepasa
+sum(nHOS+nICU>=cap)
+
+
