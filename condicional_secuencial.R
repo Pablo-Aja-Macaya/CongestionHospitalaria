@@ -1,130 +1,4 @@
-# Pasos:
-  # - Procesar datos y calcular proporción por edades y sexos
-  # - Calcular probabilidades
-  # - Weibull (no se puede con datos reales entiendo)
-  # - Simulacion
-
-library(Rlab)
-library(data.table)
-# library(foreach)
-# library(doParallel)
-
-##########################################
-# ---- Proporción de edades y sexos ---- #
-##########################################
-
-# Variables a elegir
-area.sanitaria <- 'all' # si se pone 'all' se eligen todas
-
-filter.cases <- function(df,area){
-  # Filtra el dataframe de casos según área sanitaria
-  # Si se pone 'all' se cogen todas las áreas
-  if (area=='all'){
-    casos <- df
-  } else {
-    casos <- subset(df, area_sanitaria==area)
-  }
-  return(casos)
-}
-
-get.group.total <- function(df, s){
-  # Coge un dtaframe y el sexo objetivo y saca el total de individuos para cada
-  # rango de edad
-  grupos <- unique(subset(df, sexo==s)$grupo_edad)
-  grupos <- grupos[order(grupos)] # ordenar
-  l <- list()
-  for (g in grupos){
-    tot <- sum(subset(df, sexo==s & grupo_edad==g)$cantidad)
-    l[[g]] <- tot
-  }
-  return(unlist(l))
-}
-
-# Casos base
-casos.org <- data.frame(fread('datos/solicitud_BD_1.csv'))
-
-# Casos elegidos
-casos <- filter.cases(casos.org, area.sanitaria)
-
-# Hospitalizados en estos casos
-hospitalizados <- subset(casos, estado=='HOS')
-
-# ---- Proporciones de casos ----
-women.age.interval <- get.group.total(casos, 'M')
-men.age.interval <- get.group.total(casos, 'H')
-
-# Calculo de la media de cada intervalo de edad (se usa en la simulación) Ej: Transforma "[20,30)" a 25
-# PELIGRO: si en los datos de input no se representan todos los grupos en ambos sexos 
-# la simulación podría estar mal equilibrada (ej: si sólo hay hombres de +70 y mujeres de -50 
-# la simulación no creará individuos hombres de 50 años)
-get.mean.age <- function(interval.vector){
-  tmp <- gsub("\\[|)", "", names(interval.vector))
-  rango.edad <- strsplit(tmp, ',')
-  age.interval <- unlist(lapply(strsplit(tmp, ','), function(x){mean(as.numeric(x))}))
-  return(age.interval)
-}
-women.mean.age.interval <- get.mean.age(women.age.interval)
-men.mean.age.interval <- get.mean.age(men.age.interval)
-
-
-# Proporciones
-total.m <- sum(men.age.interval)
-total.w <- sum(women.age.interval)
-total <- total.w + total.m
-
-prob.w <- total.w/total # Parameter Bernoulli (0=man, 1=woman)
-prob.m <- total.m/total
-
-woman.age.prob <- women.age.interval/total.w 
-man.age.prob <- men.age.interval/total.m 
-
-plot(women.age.interval, col='red')
-plot(men.age.interval, col='blue')
-
-# ---- Proporciones de hospitalizados ----
-women.age.hosp.interval <-  get.group.total(hospitalizados, 'M')
-men.age.hosp.interval <- get.group.total(hospitalizados, 'H')
-
-total.w.hosp <- sum(women.age.hosp.interval)
-total.m.hosp <- sum(men.age.hosp.interval)
-total.hosp <- total.w.hosp + total.m.hosp
-
-prob.w.hosp <- total.w.hosp/total.hosp
-prob.m.hosp <- total.m.hosp/total.hosp
-woman.age.prob.hosp <- women.age.hosp.interval/total.w.hosp
-man.age.prob.hosp <- men.age.hosp.interval/total.m.hosp 
-
-# Proporciones muestrales de hospitalizados:
-prob.rc.woman <- women.age.hosp.interval/women.age.interval
-prob.rc.man <- men.age.hosp.interval/men.age.interval
-
-plot(women.age.hosp.interval, col='red')
-plot(men.age.hosp.interval, col='blue')
-
-##########################################
-# ------ Capacidad asistencial --------- #
-##########################################
-capacidad <- data.frame(fread("datos/solicitud_BD.2.csv"))
-names(capacidad) <- tolower(names(capacidad))
-
-get.capacity <- function(df, hosp, unidad){
-  if (hosp=='all'){
-    selected <- subset(df, unidad==unidad)    
-  } else {
-    selected <- subset(df, hospital==hosp & unidad==unidad)    
-  }
-  stats <- list()
-  stats$average_total <- mean(selected$total_camas)
-  stats$average_ocupadas_covid <- mean(selected$ocupadas_covid19)
-  stats$average_ocupadas_no_covid <- mean(selected$ocupadas_no_covid19)
-  stats$average_ingresos_24_covid <- mean(selected$ingresos_24h_covid19)
-  stats$average_altas_24_covid <- mean(selected$altas_24h_covid19)
-  
-  return(stats)
-}
-
-capacidad.asistencial <- get.capacity(capacidad, 'HULA', 'UCI')
-
+#### Simulación secuencial ####
 
 ##########################################
 # ------ Variables de simulación ------- #
@@ -138,55 +12,13 @@ age <- gender <- inf.time <- prob.rc <- final.state <- matrix(rep(NA, length.out
 state <- rep(NA, m*n.ind*n.time)
 dim(state) <- c(m, n.ind, n.time)
 
-
-##########################################
-# ---- Probabilidades en simulación ---- #
-##########################################
-
-# ---- When a patient is admitted into the hospital ----
-# Probability of going directly to ICU
-prob.ICU <- sum(subset(hospitalizados, ingreso_hospitalario==0 & ingreso_uci==1)$cantidad, na.rm=T) / sum(hospitalizados$cantidad, na.rm=T)
-# Probability of staying in hospital ward first
-prob.HW <- sum(subset(hospitalizados, ingreso_hospitalario==1)$cantidad, na.rm=T) / sum(hospitalizados$cantidad, na.rm=T)
-
-
-# ---- Options in HW ----
-# Of those admitted in hospital ward, the probability of death without going to ICU is
-prob.HW.death <- mean(subset(hospitalizados, ingreso_hospitalario==1 & ingreso_uci==0)$proporcion_muertos, na.rm=T)
-# Probability that a patient admitted in hospital ward finally has to enter ICU
-prob.HW.ICU <- sum(subset(hospitalizados, ingreso_hospitalario==1 & ingreso_uci==1)$cantidad, na.rm=T) / sum(hospitalizados$cantidad, na.rm=T)
-# Probability that a patient admitted to hospital ward becomes discharged without entering ICU is
-prob.HW.disc <- sum(subset(hospitalizados, ingreso_hospitalario==1 & ingreso_uci==0)$cantidad) / sum(hospitalizados$cantidad, na.rm=T)
-
-
-# ---- Options in ICU ----
-
-# Probability of dying after being admitted in ICU
-prob.ICU.death <- mean(subset(hospitalizados, ingreso_uci==1)$proporcion_muertos)
-
-# Probability of being transferred to hospital ward after being admitted in ICU
-### PROBLEMA: no se puede a no ser que se agrupe por un atributo extra, 
-# que sería "dirección" (si la fecha de discharge de UCI es menor que la de admission 
-# en HOSP entonces direccion=UCI.to.HOS)
-prob.ICU.HW <- 0.78
-  
-
-##########################################
-# ------------- Weibull ---------------- #
-##########################################
-
-# Queda decidir de dónde se sacan los datos para esto 
-# (en main.R hay una implementación para datos antiguos individualizados)
-
-
-
-
 ##########################################
 # ------------ Simulación -------------- #
 ##########################################
 n.HOS <- n.ICU <- n.Dead <- n.Discharge <- n.H.Dead <- n.ICU.Dead  <- matrix(rep(NA, length.out= m*n.time), nrow = m, ncol = n.time) 
 
 set.seed(123)
+
 for (j in 1:m) {
   # cat("j=",j,"\n")
   if(j%%10==0) cat("j=",j,"\n")
@@ -337,46 +169,4 @@ for (j in 1:m) {
     n.Dead[j,k] <- n.H.Dead[j,k] + n.ICU.Dead[j,k]
   }
 } # end j in m
-
-
-nHOS <- nICU <- nDead <- nDischarge <- nH.Dead <- nICU.Dead  <- rep(0, length.out= n.time) 
-for (k in 1:n.time){
-  nHOS[k] <- sum(n.HOS[,k], na.rm=T)/m
-  nICU[k] <- sum(n.ICU[,k], na.rm=T)/m
-  nDead[k] <- sum(n.Dead[,k], na.rm=T)/m
-  nDischarge[k] <- sum(n.Discharge[,k], na.rm=T)/m
-  nH.Dead[k] <- sum(n.H.Dead[,k], na.rm=T)/m
-  nICU.Dead[k] <- sum(n.ICU.Dead[,k], na.rm=T)/m
-}
-
-t <- seq(1, n.time)
-plot(t, nHOS, type="l",lty=1, lwd=2, col=1)
-plot(t, nICU, type="l",lty=1, lwd=2, col=1)
-plot(t, nDead, type="l",lty=1, lwd=2, col=1)
-plot(t, nH.Dead, type="l",lty=1, lwd=2, col=1)
-
-plot(t, nDischarge, type="l", lty=1, lwd=2, col=1)
-barplot(nDischarge)
-
-
-# Ver si en algún momento se superó el número de camas
-cap <- 50 #capacidad.asistencial$average_total
-plot(NA, xlim=c(0,n.time), ylim=c(0,100), xlab="", ylab="")
-abline(h=cap, col='red')
-for(j in 1:m){
-  # Para cada simulación ver en cuántos días hay más gente en UCI y Hospital que camas
-  lines(n.ICU[j,]+n.HOS[j,], col=alpha('black', 0.2))
-  # c <- (sum(cap <= n.ICU[j,]+n.HOS[j,], na.rm=T))
-  # if (c!=0){
-  #   lines(n.ICU[j,]+n.HOS[j,], col=rand_color(1))
-  #   
-  # }
-}
-lines(nHOS, type="l",lty=1, lwd=2, col='green')
-lines(nICU, type="l",lty=1, lwd=2, col='red')
-lines(nHOS+nICU, type="l",lty=1, lwd=2, col='blue')
-
-# Número de días que se sobrepasa
-sum(nHOS+nICU>=cap)
-
 
