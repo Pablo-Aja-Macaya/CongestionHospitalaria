@@ -1,6 +1,15 @@
+m <- 1000 # Number of samples m=1000
+n.ind <- 1000 # infected individuals N=1000
+n.time <- 250 # Number of days (follow-up time)
+
+age.inc <- gender.inc <- inf.time <- prob.rc <- final.state.inc <- matrix(rep(NA, length.out=m*n.ind), nrow = m, ncol = n.ind) 
+state.inc <- rep(NA, m*n.ind*n.time)
+dim(state.inc) <- c(m, n.ind, n.time)
+n.HOS.inc <- n.ICU.inc <- n.Dead.inc <- n.Discharge.inc <- n.H.Dead.inc <- n.ICU.inc.Dead.inc  <- matrix(rep(NA, length.out= m*n.time), nrow = m, ncol = n.time)
+
 for (j in 1:m){
   # cat("j=",j,"\n")
-  # if(j%%10==0) cat("j=",j,"\n")
+  if(j%%10==0) cat("j=",j,"\n")
   
   # Definition of age, gender and infection times
   # of patients in sample j

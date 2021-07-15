@@ -135,23 +135,23 @@ capacidad.asistencial <- get.capacity(capacidad, area.sanitaria, 'UCI')
 # ---- Probabilidades en simulación ---- #
 ##########################################
 
-# ---- When a patient is admitted into the hospital ----
+# ---- When a patient is admitted into the hospital ---- #
 # Probability of going directly to ICU
 prob.ICU <- sum(subset(hospitalizados, ingreso_hospitalario==0 & ingreso_uci==1)$cantidad, na.rm=T) / sum(hospitalizados$cantidad, na.rm=T)
-# Probability of staying in hospital ward first
+# Probability of staying in hospital ward first (Seguramente sea necesario el atributo de dirección si se quiere saber si es "first")
 prob.HW <- sum(subset(hospitalizados, ingreso_hospitalario==1)$cantidad, na.rm=T) / sum(hospitalizados$cantidad, na.rm=T)
 
 
-# ---- Options in HW ----
+# ---- Options in HW ---- #
 # Of those admitted in hospital ward, the probability of death without going to ICU is
 prob.HW.death <- mean(subset(hospitalizados, ingreso_hospitalario==1 & ingreso_uci==0)$proporcion_muertos, na.rm=T)
 # Probability that a patient admitted in hospital ward finally has to enter ICU
 prob.HW.ICU <- sum(subset(hospitalizados, ingreso_hospitalario==1 & ingreso_uci==1)$cantidad, na.rm=T) / sum(hospitalizados$cantidad, na.rm=T)
-# Probability that a patient admitted to hospital ward becomes discharged without entering ICU is
+# Probability that a patient admitted to hospital ward becomes discharged without entering ICU is (Esto no es del todo preciso, incluye a los que se mueren en HW)
 prob.HW.disc <- sum(subset(hospitalizados, ingreso_hospitalario==1 & ingreso_uci==0)$cantidad) / sum(hospitalizados$cantidad, na.rm=T)
 
 
-# ---- Options in ICU ----
+# ---- Options in ICU ---- #
 
 # Probability of dying after being admitted in ICU
 prob.ICU.death <- mean(subset(hospitalizados, ingreso_uci==1)$proporcion_muertos)
@@ -161,7 +161,7 @@ prob.ICU.death <- mean(subset(hospitalizados, ingreso_uci==1)$proporcion_muertos
 # que sería "dirección" (si la fecha de discharge de UCI es menor que la de admission 
 # en HOSP entonces direccion=UCI.to.HOS)
 prob.ICU.HW <- 0.78
-  
+
 
 ##########################################
 # ------------- Weibull ---------------- #
@@ -305,17 +305,17 @@ res <- foreach (par.m=1:par.m.loops) %dopar% {
           v2 <- runif(1)
           if (v2 <= prob.HW.death) {# Patient dies in HW
             time.HW.death <- rexp(1, 0.1)# Of those admitted in hospital ward, the time to death 
-            state[j, i, i.final: ceiling(i.final+time.HW.death)-1] = "H"
-            state[j, i, ceiling(i.final+time.HW.death)] = "H.Dead"
+            state[j, i, i.final: pmin(n.time, ceiling(i.final+time.HW.death)-1)] = "H"
+            state[j, i, pmin(n.time, ceiling(i.final+time.HW.death))] = "H.Dead"
             final.state[j,i] = "Dead"
           } else if ( (v2 > prob.HW.death) && (v2 <= prob.HW.death+prob.HW.ICU) ) {# Patient goes to ICU
             time.HW.ICU <- rweibull(1, shape=1.6, scale=scale.HW.ICU)# Time since hospital ward admission to ICU
-            state[j,i,i.final: ceiling(i.final+time.HW.ICU)] = "H"
+            state[j,i,i.final: pmin(n.time, ceiling(i.final+time.HW.ICU))] = "H"
             final.state[j,i] = "ICU"
           } else {# Patient discharged
             time.HW.disc <- rweibull(1, shape=2.6, scale=scale.HW.disc )# Time since hospital ward admission to discharge is
-            state[j,i,i.final: ceiling(i.final+time.HW.disc)-1] = "H"
-            state[j,i,ceiling(i.final+time.HW.disc)] = "H.Discharge"
+            state[j,i,i.final: pmin(n.time, ceiling(i.final+time.HW.disc)-1)] = "H"
+            state[j,i,pmin(n.time, ceiling(i.final+time.HW.disc))] = "H.Discharge"
             final.state[j,i] = "Discharge"}
         } else {
           #---------------------------------------------
@@ -323,8 +323,8 @@ res <- foreach (par.m=1:par.m.loops) %dopar% {
           v3 <- runif(1)
           if (v3 <= prob.ICU.death) {# Patient dies in ICU
             time.ICU.death <- rweibull(1, shape=1.4, scale=scale.ICU.death)# Time from admission in ICU to death
-            state[j,i,i.final : ceiling(i.final+time.ICU.death)-1] = "ICU"
-            state[j,i,ceiling(i.final+time.ICU.death)] = "ICU.Dead"
+            state[j,i,i.final : pmin(n.time, ceiling(i.final+time.ICU.death)-1)] = "ICU"
+            state[j,i,pmin(n.time, ceiling(i.final+time.ICU.death))] = "ICU.Dead"
             final.state[j,i] = "Dead"
           } else {# Patient goes to hospital ward
             time.ICU.HW <- rweibull(1, shape=1.8, scale=scale.ICU.HW ) # Time since admission in ICU till return to ward
@@ -376,19 +376,20 @@ for (k in 1:n.time){
   nICU.Dead[k] <- sum(n.ICU.Dead[,k], na.rm=T)/m
 }
 
-t <- seq(1, n.time)
-plot(t, nHOS, type="l",lty=1, lwd=2, col=1)
-plot(t, nICU, type="l",lty=1, lwd=2, col=1)
-plot(t, nDead, type="l",lty=1, lwd=2, col=1)
-plot(t, nH.Dead, type="l",lty=1, lwd=2, col=1)
+# t <- seq(1, n.time)
+# plot(t, nHOS, type="l",lty=1, lwd=2, col=1)
+# plot(t, nICU, type="l",lty=1, lwd=2, col=1)
+# plot(t, nDead, type="l",lty=1, lwd=2, col=1)
+# plot(t, nH.Dead, type="l",lty=1, lwd=2, col=1)
+# 
+# plot(t, nDischarge, type="l", lty=1, lwd=2, col=1)
+# barplot(nDischarge)
 
-plot(t, nDischarge, type="l", lty=1, lwd=2, col=1)
-barplot(nDischarge)
 
 
 # Ver si en algún momento se superó el número de camas
 cap <- capacidad.asistencial$average_total
-plot(NA, xlim=c(0,n.time), ylim=c(0,cap+100), xlab="", ylab="")
+plot(NA, xlim=c(0,n.time), ylim=c(0,cap+100), xlab="Días", ylab="Casos")
 abline(h=cap, col='red')
 for(j in 1:m){
   # Para cada simulación ver en cuántos días hay más gente en UCI y Hospital que camas
@@ -396,8 +397,9 @@ for(j in 1:m){
 }
 lines(nHOS, type="l",lty=1, lwd=2, col='green')
 lines(nICU, type="l",lty=1, lwd=2, col='red')
-lines(nHOS+nICU, type="l",lty=1, lwd=2, col='blue')
-
+lines(nHOS+nICU, type="l",lty=1, lwd=2, col='orange')
+legend("topright", legend = c("nHOS", "nICU",'nHOS+nICU'), 
+       col = c('green','red','orange'), pch = c(19,19,19))
 # Número de días que se sobrepasa
 sum(nHOS+nICU>=cap)
 
@@ -405,8 +407,8 @@ sum(nHOS+nICU>=cap)
 # -- Simulación paralelizada no condicional --- #
 #################################################
 
-
-# The parameters of the Weibulls 
+## ATENCION: en la no condicional falta adaptar la vectorización y poner los pmin
+# Weibull 
 scale.ICU.death <- 15.5 
 scale.ICU.HW <- 16.3 
 scale.HW.disc <- 8.4
@@ -416,10 +418,12 @@ scale.HW.ICU <- 4.2
 # Al final se tiene una lista de longitud=par.m.loops, cada una con una lista de resultados
 set.seed(123)
 res <- foreach (par.m=1:par.m.loops) %dopar% {
-  age.inc <- gender.inc <- inf.time <- prob.rc <- final.state.inc <- matrix(rep(NA, length.out=m*n.ind), nrow = m, ncol = n.ind) 
-  n.HOS.inc <- n.ICU.inc <- n.Dead.inc <- n.Discharge.inc <- n.H.Dead.inc <- n.ICU.inc.Dead.inc  <- matrix(rep(NA, length.out= m*n.time), nrow = m, ncol = n.time)
-  state.inc <- rep(NA, m*n.ind*n.time)
-  dim(state.inc) <- c(m, n.ind, n.time)
+  age.inc <- gender.inc <- inf.time <- prob.rc <- final.state.inc <- matrix(rep(NA, length.out=par.m.size*n.ind), nrow = par.m.size, ncol = n.ind) 
+  n.HOS.inc <- n.ICU.inc <- n.Dead.inc <- n.Discharge.inc <- n.H.Dead.inc <- n.ICU.inc.Dead.inc  <- matrix(rep(NA, length.out= par.m.size*n.time), nrow = par.m.size, ncol = n.time)
+  state.inc <- rep(NA, par.m.size*n.ind*n.time)
+  dim(state.inc) <- c(par.m.size, n.ind, n.time)
+  
+  n.HOS.inc <- n.ICU.inc <- n.Dead.inc <- n.Discharge.inc <- n.H.Dead.inc <- n.ICU.inc.Dead.inc  <- matrix(rep(NA, length.out= par.m.size*n.time), nrow = par.m.size, ncol = n.time) 
   for (j in 1:par.m.size){
     # cat("j=",j,"\n")
     if(j%%10==0) cat("j=",j,"\n")
@@ -550,8 +554,6 @@ res <- foreach (par.m=1:par.m.loops) %dopar% {
     # Number of patients in each state.inc (HOS, ICU, Dead, Discharge)
     #=================================================================
     
-    # n.HOS.inc <- n.ICU.inc <- n.Dead.inc <- n.Discharge.inc <- n.H.Dead.inc <- n.ICU.inc.Dead.inc  <- matrix(rep(NA, length.out= m*n.time), nrow = m, ncol = n.time) 
-    
     for (k in 1:n.time){
       n.HOS.inc[j,k] <- length(which(state.inc[j, ,k]=="H"))
       n.ICU.inc[j,k] <- length(which(state.inc[j, ,k]=="ICU"))
@@ -561,10 +563,22 @@ res <- foreach (par.m=1:par.m.loops) %dopar% {
       n.Dead.inc[j,k] <- n.H.Dead.inc[j,k] + n.ICU.inc.Dead.inc[j,k]
     }
   } # end j in m
+  # Esta línea saca fuera del bucle paralelo la información
   list(n.HOS.inc=n.HOS.inc,n.ICU.inc=n.ICU.inc,n.H.Dead.inc=n.H.Dead.inc,n.Discharge.inc=n.Discharge.inc,n.ICU.inc.Dead.inc=n.ICU.inc.Dead.inc,n.Dead.inc=n.Dead.inc)
 }
 stopImplicitCluster()
 
+# Ahora se juntan estos resultados
+get.sim.results <- function(res, name){
+  return(do.call(rbind, lapply(res, function(x){x[[name]]})))
+}
+
+n.HOS.inc <- get.sim.results(res, 'n.HOS.inc')
+n.ICU.inc <- get.sim.results(res, 'n.ICU.inc')
+n.Dead.inc <- get.sim.results(res, 'n.Dead.inc')
+n.Discharge.inc <- get.sim.results(res, 'n.Discharge.inc')
+n.H.Dead.inc <- get.sim.results(res, 'n.H.Dead.inc')
+n.ICU.inc.Dead.inc <- get.sim.results(res, 'n.ICU.inc.Dead.inc')
 
 #################################################
 # -- Gráficas de resultados no condicionales -- #
@@ -580,18 +594,18 @@ for (k in 1:n.time){
   nICU.inc.Dead[k] <-sum(n.ICU.inc.Dead.inc[,k], na.rm=T)/m
 }
 
-t <- seq(1, n.time)
-plot(t, nHOS.inc, type="l",lty=1, lwd=2, col=1)
-plot(t, nICU.inc, type="l",lty=1, lwd=2, col=1)
-plot(t, nDead.inc, type="l",lty=1, lwd=2, col=1)
-plot(t, nH.Dead.inc, type="l",lty=1, lwd=2, col=1)
-
-plot(t, nDischarge.inc, type="l", lty=1, lwd=2, col=1)
-barplot(nDischarge.inc)
+# t <- seq(1, n.time)
+# plot(t, nHOS.inc, type="l",lty=1, lwd=2, col=1)
+# plot(t, nICU.inc, type="l",lty=1, lwd=2, col=1)
+# plot(t, nDead.inc, type="l",lty=1, lwd=2, col=1)
+# plot(t, nH.Dead.inc, type="l",lty=1, lwd=2, col=1)
+# 
+# plot(t, nDischarge.inc, type="l", lty=1, lwd=2, col=1)
+# barplot(nDischarge.inc)
 
 # Ver si en algún momento se superó el número de camas
 cap <- capacidad.asistencial$average_total
-plot(NA, xlim=c(0,n.time), ylim=c(0,cap+100), xlab="", ylab="")
+plot(NA, xlim=c(0,n.time), ylim=c(0,cap+100), xlab="Días", ylab="Casos")
 abline(h=cap, col='red')
 for(j in 1:m){
   # Para cada simulación ver en cuántos días hay más gente en UCI y Hospital que camas
@@ -599,8 +613,9 @@ for(j in 1:m){
 }
 lines(nHOS.inc, type="l",lty=1, lwd=2, col='green')
 lines(nICU.inc, type="l",lty=1, lwd=2, col='red')
-lines(nHOS.inc+nICU.inc, type="l",lty=1, lwd=2, col='blue')
-
+lines(nHOS.inc+nICU.inc, type="l",lty=1, lwd=2, col='orange')
+legend("topright", legend = c("nHOS.inc", "nICU.inc",'nHOS.inc+nICU.inc'), 
+       col = c('green','red','orange'), pch = c(19,19,19))
 # Número de días que se sobrepasa
 sum(nHOS.inc+nICU.inc>=cap)
 
