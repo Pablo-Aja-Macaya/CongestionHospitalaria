@@ -43,7 +43,7 @@ for (j in 1:m) {
     }
   }  
   
-  # WARNING: No sé qué es esto
+  # Cuándo empieza la infección
   inf.time[j,] <- rnorm(n=n.ind, mean=60, sd=10)
   
   #----------------------------------------------------
@@ -51,7 +51,7 @@ for (j in 1:m) {
   #----------------------------------------------------
   for (i in 1:n.ind){
     # Ceiling redondea hacia arriba (1.1->2)
-    # WARNING: No entiendo
+    # Todo lo que está antes del punto de infección es 0, y el punto de infección es I
     state[j, i, 1:(ceiling(inf.time[j,i])-1)] = 0
     state[j, i, ceiling(inf.time[j,i])] = "I"
   }

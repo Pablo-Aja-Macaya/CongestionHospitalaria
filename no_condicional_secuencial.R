@@ -1,6 +1,6 @@
 for (j in 1:m){
   # cat("j=",j,"\n")
-  if(j%%10==0) cat("j=",j,"\n")
+  # if(j%%10==0) cat("j=",j,"\n")
   
   # Definition of age, gender and infection times
   # of patients in sample j

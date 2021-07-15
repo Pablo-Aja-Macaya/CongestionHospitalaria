@@ -50,7 +50,7 @@ casos <- filter.cases(casos.org, area.sanitaria)
 # Hospitalizados en estos casos
 hospitalizados <- subset(casos, estado=='HOS')
 
-# ---- Proporciones de casos ---- #
+# ---- Proporciones de casos ----
 women.age.interval <- get.group.total(casos, 'M')
 men.age.interval <- get.group.total(casos, 'H')
 
@@ -82,7 +82,7 @@ man.age.prob <- men.age.interval/total.m
 plot(as.factor(names(women.age.interval)), women.age.interval, main='women.age.interval')
 plot(as.factor(names(men.age.interval)), men.age.interval, main='men.age.interval')
 
-# ---- Proporciones de hospitalizados ---- #
+# ---- Proporciones de hospitalizados ----
 women.age.hosp.interval <-  get.group.total(hospitalizados, 'M')
 men.age.hosp.interval <- get.group.total(hospitalizados, 'H')
 
@@ -135,14 +135,14 @@ capacidad.asistencial <- get.capacity(capacidad, area.sanitaria, 'UCI')
 # ---- Probabilidades en simulación ---- #
 ##########################################
 
-# ---- When a patient is admitted into the hospital ---- #
+# ---- When a patient is admitted into the hospital ----
 # Probability of going directly to ICU
 prob.ICU <- sum(subset(hospitalizados, ingreso_hospitalario==0 & ingreso_uci==1)$cantidad, na.rm=T) / sum(hospitalizados$cantidad, na.rm=T)
 # Probability of staying in hospital ward first
 prob.HW <- sum(subset(hospitalizados, ingreso_hospitalario==1)$cantidad, na.rm=T) / sum(hospitalizados$cantidad, na.rm=T)
 
 
-# ---- Options in HW ---- #
+# ---- Options in HW ----
 # Of those admitted in hospital ward, the probability of death without going to ICU is
 prob.HW.death <- mean(subset(hospitalizados, ingreso_hospitalario==1 & ingreso_uci==0)$proporcion_muertos, na.rm=T)
 # Probability that a patient admitted in hospital ward finally has to enter ICU
@@ -151,7 +151,7 @@ prob.HW.ICU <- sum(subset(hospitalizados, ingreso_hospitalario==1 & ingreso_uci=
 prob.HW.disc <- sum(subset(hospitalizados, ingreso_hospitalario==1 & ingreso_uci==0)$cantidad) / sum(hospitalizados$cantidad, na.rm=T)
 
 
-# ---- Options in ICU ---- #
+# ---- Options in ICU ----
 
 # Probability of dying after being admitted in ICU
 prob.ICU.death <- mean(subset(hospitalizados, ingreso_uci==1)$proporcion_muertos)
@@ -172,7 +172,7 @@ prob.ICU.HW <- 0.78
 # Por ahora se usa la fórmula calculada a mano
 
 ##############################################
-# -- Variables comunes entre simulaciones -- #
+# -- Variables comunes en simulaciones  ---- #
 ##############################################
 num.cores <- 6
 registerDoParallel(num.cores) 
@@ -183,6 +183,7 @@ n.time <- 250 # Number of days (follow-up time)
 
 par.m.size <- m/10
 par.m.loops <- par.m.size/10
+
 ##############################################
 # -- Simulación paralelizada condicional  -- #
 ##############################################
@@ -202,24 +203,25 @@ res <- foreach (par.m=1:par.m.loops) %dopar% {
     # Definition of age, gender and infection times
     # of patients in sample j
     
-    gender[j,] <- rbern(n.ind, prob=prob.w)    # Gender from real data distribution
+    tmp <- rbern(n.ind, prob=prob.w)
+    gender[j,] <- tmp
     
     # Age and hospital admission real data distribution
     # Con la distribución de edades reales se selecciona una etapa (ej: 54.5) y su 
     # probabilidad de hospitalización (ej: 0.28) para cada individuo i en una simulación j
-    for (i in 1:n.ind){
-      if (gender[j,i] == 1) {
-        n.interval <- sample(1:length(woman.age.prob),size=1,prob=woman.age.prob)
-        age[j,i] <- women.mean.age.interval[n.interval]
-        prob.rc[j,i] <- prob.rc.woman[n.interval]
-      } else {
-        n.interval <- sample(1:length(man.age.prob),size=1,prob=man.age.prob)
-        age[j,i] <- men.mean.age.interval[n.interval]
-        prob.rc[j,i] <- prob.rc.man[n.interval]
-      }
-    }  
+    # Mujeres (1)
+    condicion <- which(tmp==1)
+    n.interval <- sample(1:length(woman.age.prob),size=length(condicion),prob=woman.age.prob, replace=T)
+    age[j,][condicion] <- women.mean.age.interval[n.interval]
+    prob.rc[j,][condicion] <- prob.rc.woman[n.interval]
     
-    # WARNING: No sé qué es esto
+    # Hombres (0)
+    condicion <- which(tmp==0)
+    n.interval <- sample(1:length(man.age.prob),size=length(condicion),prob=man.age.prob, replace=T)
+    age[j,][condicion] <- men.mean.age.interval[n.interval]
+    prob.rc[j,][condicion] <- prob.rc.man[n.interval]
+    
+    # Día en el que se infecta
     inf.time[j,] <- rnorm(n=n.ind, mean=60, sd=10)
     
     #----------------------------------------------------
@@ -227,7 +229,7 @@ res <- foreach (par.m=1:par.m.loops) %dopar% {
     #----------------------------------------------------
     for (i in 1:n.ind){
       # Ceiling redondea hacia arriba (1.1->2)
-      # WARNING: No entiendo
+      # Los días previos al de infección son 0 y el de infección es I
       state[j, i, 1:(ceiling(inf.time[j,i])-1)] = 0
       state[j, i, ceiling(inf.time[j,i])] = "I"
     }
@@ -354,7 +356,6 @@ stopImplicitCluster()
 get.sim.results <- function(res, name){
   return(do.call(rbind, lapply(res, function(x){x[[name]]})))
 }
-
 n.HOS <- get.sim.results(res, 'n.HOS')
 n.ICU <- get.sim.results(res, 'n.ICU')
 n.H.Dead <- get.sim.results(res, 'n.H.Dead')
@@ -376,16 +377,14 @@ for (k in 1:n.time){
 }
 
 t <- seq(1, n.time)
-par(mfrow=c(2,2))
 plot(t, nHOS, type="l",lty=1, lwd=2, col=1)
 plot(t, nICU, type="l",lty=1, lwd=2, col=1)
 plot(t, nDead, type="l",lty=1, lwd=2, col=1)
 plot(t, nH.Dead, type="l",lty=1, lwd=2, col=1)
 
-par(mfrow=c(1,2))
 plot(t, nDischarge, type="l", lty=1, lwd=2, col=1)
 barplot(nDischarge)
-par(mfrow=c(1,1))
+
 
 # Ver si en algún momento se superó el número de camas
 cap <- capacidad.asistencial$average_total
@@ -402,10 +401,11 @@ lines(nHOS+nICU, type="l",lty=1, lwd=2, col='blue')
 # Número de días que se sobrepasa
 sum(nHOS+nICU>=cap)
 
-
 #################################################
 # -- Simulación paralelizada no condicional --- #
 #################################################
+
+
 # The parameters of the Weibulls 
 scale.ICU.death <- 15.5 
 scale.ICU.HW <- 16.3 
@@ -416,12 +416,10 @@ scale.HW.ICU <- 4.2
 # Al final se tiene una lista de longitud=par.m.loops, cada una con una lista de resultados
 set.seed(123)
 res <- foreach (par.m=1:par.m.loops) %dopar% {
-  age.inc <- gender.inc <- inf.time <- prob.rc <- final.state.inc <- matrix(rep(NA, length.out=par.m.size*n.ind), nrow = par.m.size, ncol = n.ind) 
-  n.HOS.inc <- n.ICU.inc <- n.Dead.inc <- n.Discharge.inc <- n.H.Dead.inc <- n.ICU.inc.Dead.inc  <- matrix(rep(NA, length.out= par.m.size*n.time), nrow = par.m.size, ncol = n.time)
-  state.inc <- rep(NA, par.m.size*n.ind*n.time)
-  dim(state.inc) <- c(par.m.size, n.ind, n.time)
-  
-  n.HOS.inc <- n.ICU.inc <- n.Dead.inc <- n.Discharge.inc <- n.H.Dead.inc <- n.ICU.inc.Dead.inc  <- matrix(rep(NA, length.out= par.m.size*n.time), nrow = par.m.size, ncol = n.time) 
+  age.inc <- gender.inc <- inf.time <- prob.rc <- final.state.inc <- matrix(rep(NA, length.out=m*n.ind), nrow = m, ncol = n.ind) 
+  n.HOS.inc <- n.ICU.inc <- n.Dead.inc <- n.Discharge.inc <- n.H.Dead.inc <- n.ICU.inc.Dead.inc  <- matrix(rep(NA, length.out= m*n.time), nrow = m, ncol = n.time)
+  state.inc <- rep(NA, m*n.ind*n.time)
+  dim(state.inc) <- c(m, n.ind, n.time)
   for (j in 1:par.m.size){
     # cat("j=",j,"\n")
     if(j%%10==0) cat("j=",j,"\n")
@@ -552,6 +550,8 @@ res <- foreach (par.m=1:par.m.loops) %dopar% {
     # Number of patients in each state.inc (HOS, ICU, Dead, Discharge)
     #=================================================================
     
+    # n.HOS.inc <- n.ICU.inc <- n.Dead.inc <- n.Discharge.inc <- n.H.Dead.inc <- n.ICU.inc.Dead.inc  <- matrix(rep(NA, length.out= m*n.time), nrow = m, ncol = n.time) 
+    
     for (k in 1:n.time){
       n.HOS.inc[j,k] <- length(which(state.inc[j, ,k]=="H"))
       n.ICU.inc[j,k] <- length(which(state.inc[j, ,k]=="ICU"))
@@ -561,22 +561,9 @@ res <- foreach (par.m=1:par.m.loops) %dopar% {
       n.Dead.inc[j,k] <- n.H.Dead.inc[j,k] + n.ICU.inc.Dead.inc[j,k]
     }
   } # end j in m
-  # Esta línea saca fuera del bucle paralelo la información
   list(n.HOS.inc=n.HOS.inc,n.ICU.inc=n.ICU.inc,n.H.Dead.inc=n.H.Dead.inc,n.Discharge.inc=n.Discharge.inc,n.ICU.inc.Dead.inc=n.ICU.inc.Dead.inc,n.Dead.inc=n.Dead.inc)
 }
 stopImplicitCluster()
-
-# Ahora se juntan estos resultados
-get.sim.results <- function(res, name){
-  return(do.call(rbind, lapply(res, function(x){x[[name]]})))
-}
-
-n.HOS.inc <- get.sim.results(res, 'n.HOS.inc')
-n.ICU.inc <- get.sim.results(res, 'n.ICU.inc')
-n.Dead.inc <- get.sim.results(res, 'n.Dead.inc')
-n.Discharge.inc <- get.sim.results(res, 'n.Discharge.inc')
-n.H.Dead.inc <- get.sim.results(res, 'n.H.Dead.inc')
-n.ICU.inc.Dead.inc <- get.sim.results(res, 'n.ICU.inc.Dead.inc')
 
 
 #################################################
@@ -594,16 +581,13 @@ for (k in 1:n.time){
 }
 
 t <- seq(1, n.time)
-par(mfrow=c(2,2))
 plot(t, nHOS.inc, type="l",lty=1, lwd=2, col=1)
 plot(t, nICU.inc, type="l",lty=1, lwd=2, col=1)
 plot(t, nDead.inc, type="l",lty=1, lwd=2, col=1)
 plot(t, nH.Dead.inc, type="l",lty=1, lwd=2, col=1)
 
-par(mfrow=c(1,2))
 plot(t, nDischarge.inc, type="l", lty=1, lwd=2, col=1)
 barplot(nDischarge.inc)
-par(mfrow=c(1,1))
 
 # Ver si en algún momento se superó el número de camas
 cap <- capacidad.asistencial$average_total
@@ -619,6 +603,21 @@ lines(nHOS.inc+nICU.inc, type="l",lty=1, lwd=2, col='blue')
 
 # Número de días que se sobrepasa
 sum(nHOS.inc+nICU.inc>=cap)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
