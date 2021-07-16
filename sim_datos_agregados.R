@@ -385,29 +385,6 @@ for (k in 1:n.time){
 # plot(t, nDischarge, type="l", lty=1, lwd=2, col=1)
 # barplot(nDischarge)
 
-
-
-# Ver si en algún momento se superó el número de camas
-sim.tot.hosp <- nHOS+nICU
-cap <- capacidad.asistencial$average_total
-plot(NA, xlim=c(0,n.time), ylim=c(0,max(cap+20, max(sim.tot.hosp)+50)), xlab="Días", ylab="Casos")
-abline(h=cap, col='red', lty=2)
-for(j in 1:m){
-  # Para cada simulación ver en cuántos días hay más gente en UCI y Hospital que camas
-  lines(n.ICU[j,]+n.HOS[j,], col=alpha('black', 0.2))
-}
-lines(nHOS, type="l",lty=1, lwd=2, col='green')
-lines(nICU, type="l",lty=1, lwd=2, col='red')
-lines(sim.tot.hosp, type="l",lty=1, lwd=2, col='orange')
-legend("topright", legend = c("nHOS", "nICU",'nHOS+nICU','Capacidad total media'), 
-       col = c('green','red','orange','red'), lty=c(1,1,1,2), pch = c(NA,NA,NA), bty = "n")
-
-# Número de días que se sobrepasa
-sum(sim.tot.hosp>=cap)
-
-# Por cuánto se sobrepasa
-plot(sim.tot.hosp[sim.tot.hosp>=cap]-cap)
-
 #################################################
 # -- Simulación paralelizada no condicional --- #
 #################################################
@@ -612,7 +589,7 @@ for (k in 1:n.time){
 # --- Examen de días por encima del límite ---- #
 #################################################
 
-check.hosp.capacity <- function(hosp, hosp.completo, icu, icu.completo, t){
+check.hosp.capacity <- function(hosp, hosp.completo, icu, icu.completo, neto, t){
   # ---- Ver si en algún momento se superó el número de camas ---- #
   sim.tot.hosp <- hosp+icu
   cap <- capacidad.asistencial$average_total
@@ -622,22 +599,29 @@ check.hosp.capacity <- function(hosp, hosp.completo, icu, icu.completo, t){
   # Gráficas
   plot(NA, xlim=c(0,n.time), ylim=c(0,max(cap+20, max(sim.tot.hosp)+50)), xlab="Días", ylab="Casos", main=t)
   abline(h=cap, col='red', lty=2)
-  for(j in 1:m){
-    # Para cada simulación ver en cuántos días hay más gente en UCI y Hospital que camas
-    lines(icu.completo[j,]+hosp.completo[j,], col=alpha('black', 0.2))
-  }
-  lines(hosp, type="l",lty=1, lwd=2, col='green')
+  abline(h=capacidad.asistencial$average_ocupadas_covid, col='orange', lty=2)
+  # abline(h=capacidad.asistencial$average_ingresos_24_covid, col='blue', lty=2)
+  # for(j in 1:m){
+  #   # Para cada simulación ver en cuántos días hay más gente en UCI y Hospital que camas
+  #   lines(icu.completo[j,]+hosp.completo[j,], col=alpha('black', 0.1))
+  # }
+  lines(hosp, type="l",lty=1, lwd=2, col='pink')
   lines(icu, type="l",lty=1, lwd=2, col='red')
   lines(sim.tot.hosp, type="l",lty=1, lwd=2, col='orange')
-  legend("topright", legend = c("nHOS", "nICU",'nHOS+nICU','Capacidad total media'), 
-         col = c('green','red','orange','red'), lty=c(1,1,1,2), pch = c(NA,NA,NA), bty = "n")
+  lines(neto,lty=1, lwd=2, col='green')
+  legend("topright", legend = c("nHOS", "nICU",'nHOS+nICU','Cambio neto (in-out)','Capacidad total media', 'Media ocupadas COVID'), 
+         col = c('pink','red','orange','green','red','orange'), lty=c(1,1,1,1,2,2), pch = c(NA,NA,NA,NA,NA), bty = "n")
   title(sub=paste('Días sobrepasados: ', dias.sobrepasados), adj=1, line=3, font=2,cex.sub = 0.75)
   
   # Por cuánto se sobrepasa
-  plot(sim.tot.hosp[sim.tot.hosp>=cap]-cap, ylab='Pacientes sin cama', xlab='Días')
+  # plot(sim.tot.hosp[sim.tot.hosp>=cap]-cap, ylab='Pacientes sin cama', xlab='Días')
 }
-check.hosp.capacity(nHOS, n.HOS, nICU, n.ICU, t='No condicional')
-check.hosp.capacity(nHOS.inc, n.HOS.inc, nICU.inc, n.ICU.inc, t='Condicional')
+cambio.neto <- nHOS+nICU-(nDischarge+nDead+nH.Dead+nICU.Dead)
+check.hosp.capacity(nHOS, n.HOS, nICU, n.ICU, cambio.neto, t='No condicional')
+
+
+cambio.neto <- nHOS.inc+nICU.inc-(nDischarge.inc+nDead.inc+nH.Dead.inc+nICU.inc.Dead)
+check.hosp.capacity(nHOS.inc, n.HOS.inc, nICU.inc, n.ICU.inc, cambio.neto, t='Condicional')
 
 
 
