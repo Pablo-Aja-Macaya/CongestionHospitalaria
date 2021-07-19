@@ -1,0 +1,113 @@
+---
+title: "Congestión Hospitalaria"
+output:
+  html_document:
+    highlight: 'haddock'
+    theme: cerulean
+    df_print: paged
+    number_sections: true
+---
+```{=html}
+<style type="text/css">
+.main-container {
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+}
+</style>
+```
+
+```{r global.options, include = FALSE}
+knitr::opts_chunk$set(
+    cache       = TRUE,     # if TRUE knitr will cache the results to reuse in future knits
+    fig.width   = 10,       # the width for plots created by code chunk
+    fig.height  = 10,       # the height for plots created by code chunk
+    fig.align   = 'center', # how to align graphics in the final doc. 
+    warning     = FALSE,
+    cache       = TRUE
+)
+```
+
+# Librerías
+```{r message=FALSE, warning=FALSE}
+library(Rlab)
+library(data.table)
+library(scales)
+library(foreach)
+library(doParallel)
+library(DT)
+```
+
+
+
+# Variables
+```{r}
+# Variables de simulación
+num.cores <- 6
+registerDoParallel(num.cores) 
+
+m <- 1000 # Number of samples m=1000
+n.ind <- 1000 # infected individuals N=1000
+n.time <- 250 # Number of days (follow-up time)
+
+par.m.size <- m/10 # cuántas simulaciones por núcleo
+par.m.loops <- par.m.size/10 # cuántas tandas
+
+#  Variables de datos
+area.sanitaria <- 'all' # si se pone 'all' se eligen todas
+casos.org <- data.frame(fread('datos/solicitud_BD_1.csv')) # casos base
+capacidad <- data.frame(fread("datos/solicitud_BD.2.csv")) # capacidad asistencial
+names(capacidad) <- tolower(names(capacidad))
+
+# Para crear buenas tablas
+create.table <- function(df){
+  DT::datatable(df, extensions = c('FixedColumns'),
+          options = list(scrollX = TRUE, paging=TRUE))
+}
+```
+
+# Datos completos
+```{r}
+create.table(capacidad)
+create.table(casos.org)
+```
+
+
+```{r, include=FALSE, cache=FALSE}
+knitr::read_chunk('sim_datos_agregados.R')
+```
+
+# Proporción de edades y sexos
+```{r, Proporción de edades y sexos, echo=TRUE}
+```
+
+# Capacidad asistencial
+```{r, Capacidad asistencial, echo=TRUE}
+```
+
+# Probabilidades en simulacion
+```{r, Probabilidades en simulacion, echo=TRUE}
+```
+
+# Simulación paralelizada condicional
+<details><summary style="background-color: #f4f6f6 "><a>Mostrar código</a></summary>
+```{r Simulación paralelizada condicional, echo=TRUE}
+```
+
+```{r, Gráficas de resultados condicionales, echo=TRUE}
+```
+</details>
+
+# Simulación paralelizada no condicional
+
+<details><summary style="background-color: #f4f6f6 "><a>Mostrar código</a></summary>
+```{r, Simulación paralelizada no condicional, echo=TRUE}
+```
+
+```{r, Gráficas de resultados no condicionales, echo=TRUE}
+```
+</details>
+
+# Examen de días por encima del límite
+```{r, Examen de días por encima del límite, echo=TRUE}
+```
