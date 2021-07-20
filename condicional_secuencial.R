@@ -4,7 +4,7 @@
 # ------ Variables de simulación ------- #
 ##########################################
 
-m <- 100 # Number of samples m=1000
+m <- 1000 # Number of samples m=1000
 n.ind <- 1000 # infected individuals N=1000
 n.time <- 250 # Number of days (follow-up time)
 

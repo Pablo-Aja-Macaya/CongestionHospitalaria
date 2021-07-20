@@ -199,6 +199,7 @@ list(prob.ICU=prob.ICU, prob.HW=prob.HW, prob.HW.death=prob.HW.death, prob.HW.IC
 # Cada bucle paralelo crea una lista de resultados (n.HOS, n.ICU...)
 # Al final se tiene una lista de longitud=par.m.loops, cada una con una lista de resultados
 set.seed(123)
+system.time({
 res <- foreach (par.m=1:par.m.loops) %dopar% {
   age <- gender <- inf.time <- prob.rc <- final.state <- matrix(rep(NA, length.out=par.m.size*n.ind), nrow = par.m.size, ncol = n.ind) 
   state <- rep(NA, par.m.size*n.ind*n.time)
@@ -236,13 +237,14 @@ res <- foreach (par.m=1:par.m.loops) %dopar% {
     #----------------------------------------------------
     # We define the times with infection as the state "I"
     #----------------------------------------------------
+    system.time({
     for (i in 1:n.ind){
       # Ceiling redondea hacia arriba (1.1->2)
       # Los días previos al de infección son 0 y el de infección es I
       state[j, i, 1:(ceiling(inf.time[j,i])-1)] = 0
       state[j, i, ceiling(inf.time[j,i])] = "I"
     }
-    
+    })
     #----------------------------------------------------
     # We simulate the times of the patients in hospital (i in in.H)
     #----------------------------------------------------
@@ -359,6 +361,7 @@ res <- foreach (par.m=1:par.m.loops) %dopar% {
   # Esta línea saca fuera del bucle paralelo la información
   list(n.HOS=n.HOS,n.ICU=n.ICU,n.H.Dead=n.H.Dead,n.Discharge=n.Discharge,n.ICU.Dead=n.ICU.Dead,n.Dead=n.Dead)
 }
+})
 stopImplicitCluster()
 
 # Ahora se juntan estos resultados

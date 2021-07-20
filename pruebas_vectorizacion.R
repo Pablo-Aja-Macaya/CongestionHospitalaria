@@ -23,6 +23,14 @@ prob.rc[j,][condicion] <- prob.rc.man[n.interval]
 
 # ---- Vectorización de simulación de estados ----
 
+# We define the times with infection as the state "I"
+state[j,,][col(state[j,,]) >= 1 & col(state[j,,]) <= (ceiling(inf.time[j,])-1)] <- 0
+state[j,,][col(state[j,,]) == ceiling(inf.time[j,])] <- 'I'
+
+# Times of patients in hospital
+u <- runif(n.ind)
+ind.H <- which(u<=prob.rc[j,])
+
 # Time since infection until hospital admission
 t.inf.until.hosp <- rnorm(n=n.ind, mean=12-0.05*age[j,], sd=1)
 dia.posterior.inf <- ceiling(inf.time[j,])+1 # día inicial de infección +1
@@ -55,44 +63,45 @@ v3 <- runif(length(patient.to.icu))
 patient.hw.death <- which(v2<=prob.HW.death)
 patients <- ind.H[patient.to.hos][patient.hw.death]
 time.HW.death <- rexp(length(patient.hw.death), 0.1)
-
+state.cols <- col(matrix(state[j,patients,,drop=FALSE], nrow=length(patients), ncol=n.time))
 # Periodo entre HW y evento -1
 d1 <- ceiling(inf.time[j,patients] + t.inf.until.hosp[patients])
 d2 <- ceiling(inf.time[j,patients] + t.inf.until.hosp[patients] + time.HW.death)-1
-state[j,patients,][col(state[j,patients,]) >= d1 & col(state[j,patients,]) <= d2] <- 'H'
+state[j,patients,][state.cols >= d1 & state.cols <= d2] <- 'H'
 # Día de evento
 d3 <- ceiling(inf.time[j,patients] + t.inf.until.hosp[patients] + time.HW.death)
-state[j,patients,][col(state[j,patients,]) == d3] <- 'H.Dead'
+state[j,patients,][state.cols == d3] <- 'H.Dead'
 # Estado final
 final.state[j, patients] <- 'Dead'
 
-#--------------------------------------------
+#--------------------------------------------#
 
 # Entra en HW y va a ICU
 patient.hw.icu <- which(v2>prob.HW.death & v2 <= prob.HW.death+prob.HW.ICU)
 patients <- ind.H[patient.to.hos][patient.hw.icu]
 time.HW.ICU <- rweibull(length(patient.hw.icu), shape=1.6, scale=scale.HW.ICU)
-
+state.cols <- col(matrix(state[j,patients,,drop=FALSE], nrow=length(patients), ncol=n.time))
 # Periodo entre HW y evento
 d1 <- ceiling(inf.time[j,patients] + t.inf.until.hosp[patients])
 d2 <- ceiling(inf.time[j,patients] + t.inf.until.hosp[patients] + time.HW.ICU)
-state[j,patients,][col(state[j,patients,]) >= d1 & col(state[j,patients,]) <= d2] <- 'H'
+state[j,patients,][state.cols >= d1 & state.cols <= d2] <- 'H'
 # Estado final
 final.state[j, patients] <- 'ICU'
 
-#----------------------------------------------
+#----------------------------------------------#
 
 # Entra en HW y se va
 patient.hw.discharge <- which(v2 > prob.HW.death+prob.HW.ICU)
 patients <- ind.H[patient.to.hos][patient.hw.discharge]
 time.HW.disc <- rweibull(length(patient.hw.discharge), shape=2.6, scale=scale.HW.disc[patients])
+state.cols <- col(matrix(state[j,patients,,drop=FALSE], nrow=length(patients), ncol=n.time))
 # Periodo entre HW y evento
 d1 <- ceiling(inf.time[j,patients] + t.inf.until.hosp[patients])
 d2 <- ceiling(inf.time[j,patients] + t.inf.until.hosp[patients] + time.HW.disc)-1
-state[j,patients,][col(state[j,patients,]) >= d1 & col(state[j,patients,]) <= d2] <- 'H'
+state[j,patients,][state.cols >= d1 & col(state[j,patients,]) <= d2] <- 'H'
 # Día de evento
 d3 <- ceiling(inf.time[j,patients] + t.inf.until.hosp[patients] + time.HW.disc)
-state[j,patients,][col(state[j,patients,]) == d3] <- 'H.Discharge'
+state[j,patients,][state.cols == d3] <- 'H.Discharge'
 # Estado final
 final.state[j, patients] <- 'Discharge'
 
@@ -101,13 +110,14 @@ final.state[j, patients] <- 'Discharge'
 patient.icu.death <- which(v3<=prob.ICU.death)
 patients <- ind.H[patient.to.hos][patient.icu.death]
 time.ICU.death <- rweibull(length(patient.icu.death), shape=1.4, scale=scale.ICU.death[patients])
+state.cols <- col(matrix(state[j,patients,,drop=FALSE], nrow=length(patients), ncol=n.time))
 # Periodo entre UCI y evento
 d1 <- ceiling(inf.time[j,patients] + t.inf.until.hosp[patients])
 d2 <- ceiling(inf.time[j,patients] + t.inf.until.hosp[patients] + time.ICU.death)-1
-state[j,patients,][col(state[j,patients,]) >= d1 & col(state[j,patients,]) <= d2] <- 'ICU'
+state[j,patients,][state.cols >= d1 & state.cols <= d2] <- 'ICU'
 # Día de evento
 d3 <- ceiling(inf.time[j,patients] + t.inf.until.hosp[patients] + time.ICU.death)
-state[j,patients,][col(state[j,patients,]) == d3] <- 'ICU.Dead'
+state[j,patients,][state.cols == d3] <- 'ICU.Dead'
 # Estado final
 final.state[j, patients] <- 'Dead'
 
@@ -115,10 +125,11 @@ final.state[j, patients] <- 'Dead'
 patient.icu.hw <- which(!v3<=prob.ICU.death)
 patients <- ind.H[patient.to.hos][patient.icu.hw]
 time.ICU.HW <- rweibull(length(patient.icu.hw), shape=1.8, scale=scale.ICU.HW[patients] )
+state.cols <- col(matrix(state[j,patients,,drop=FALSE], nrow=length(patients), ncol=n.time))
 # Periodo entre UCI y evento
 d1 <- ceiling(inf.time[j,patients] + t.inf.until.hosp[patients])
 d2 <- ceiling(inf.time[j,patients] + t.inf.until.hosp[patients] + time.ICU.HW)
-state[j,patients,][col(state[j,patients,]) >= d1 & col(state[j,patients,]) <= d2] <- 'ICU'
+state[j,patients,][state.cols >= d1 & state.cols <= d2] <- 'ICU'
 # Estado final
 final.state[j, patients] <- 'HOS'
 
@@ -135,7 +146,7 @@ while (keep.simulating){
     keep.simulating = FALSE
     break
   } else if (length(remaining==1)){
-    i.final <- apply(is.na(state[j,remaining,,drop=T]), 1, function(r){min(which(r))})
+    i.final <- apply(is.na(state[j,remaining,,drop=F]), 1, function(r){min(which(r))})
   } else {
     i.final <- apply(is.na(state[j,remaining,]), 1, function(r){min(which(r))})
   }
@@ -148,84 +159,86 @@ while (keep.simulating){
   patients.in.icu <- which(final.state[j,remaining]=='ICU')
   v3 <- runif(length(patients.in.icu))  
   
-  #------------------------------------------------------------
+  #------------------------------------------------------------#
   
   # Paciente muere en HW
   patient.hw.death <- which(v2<=prob.HW.death)
   patients <- remaining[patients.in.hw][patient.hw.death]
   time.HW.death <- rexp(length(patient.hw.death), 0.1)
+  state.cols <- col(matrix(state[j,patients,,drop=FALSE], nrow=length(patients), ncol=n.time))
   # Periodo entre HW y evento
   d1 <- i.final[patient.hw.death]
   d2 <- ceiling(i.final[patient.hw.death]+time.HW.death)-1
-  state[j,patients,][col(state[j,patients,]) >= d1 & col(state[j,patients,]) <= d2] <- 'H'
+  state[j,patients,][state.cols >= d1 & state.cols <= d2] <- 'H'
   # Día de evento
   d3 <- ceiling(i.final[patient.hw.death]+time.HW.death)
-  state[j,patients,][col(state[j,patients,]) == d3] <- 'H.Dead'
+  state[j,patients,][state.cols == d3] <- 'H.Dead'
   # Estado final
   final.state[j,patients] <- 'Dead'
   
-  #-------------------------------------------------------------
+  #-------------------------------------------------------------#
   
   # Paciente va de HW a UCI
   patient.hw.icu <- which((v2 > prob.HW.death) & (v2 <= prob.HW.death+prob.HW.ICU))
   patients <- remaining[patients.in.hw][patient.hw.icu]
   time.HW.ICU <- rweibull(1, shape=1.6, scale=scale.HW.ICU)
+  state.cols <- col(matrix(state[j,patients,,drop=FALSE], nrow=length(patients), ncol=n.time))
   # Periodo entre HW y evento
   d1 <- i.final[patient.hw.icu]
   d2 <- ceiling(i.final[patient.hw.icu]+time.HW.ICU)
-  state[j,patients,][col(state[j,patients,]) >= d1 & col(state[j,patients,]) <= d2] <- 'H'
+  state[j,patients,][state.cols >= d1 & state.cols <= d2] <- 'H'
   # Estado final
   final.state[j,patients] <- 'ICU'  
   
-  #---------------------------------------------------------------
+  #-------------------------------------------------------------#
   
   # Paciente se va de HW
   patient.hw.discharge <- which((v2 > prob.HW.death) & (v2 > prob.HW.death+prob.HW.ICU))
   patients <- remaining[patients.in.hw][patient.hw.discharge]
   time.HW.disc <- rweibull(length(patient.hw.discharge), shape=2.6, scale=scale.HW.disc[patients] )
+  state.cols <- col(matrix(state[j,patients,,drop=FALSE], nrow=length(patients), ncol=n.time))
   # Periodo entre HW y evento
   d1 <- i.final[patient.hw.discharge]
   d2 <- ceiling(i.final[patient.hw.discharge]+time.HW.disc)-1
-  state[j,patients,][col(state[j,patients,]) >= d1 & col(state[j,patients,]) <= d2] <- 'H'
+  state[j,patients,][state.cols >= d1 & state.cols <= d2] <- 'H'
   # Día de evento
   d3 <- ceiling(i.final[patient.hw.discharge]+time.HW.disc)
-  state[j,patients,][col(state[j,patients,]) == d3] <- 'H.Discharge'
+  state[j,patients,][state.cols == d3] <- 'H.Discharge'
   # Estado final
   final.state[j,patients] <- 'Discharge'    
   
-  #----------------------------------------------------------------
+  #--------------------------------------------------------------#
   
   # Paciente muere en UCI
   patient.icu.death <- which(v3<=prob.ICU.death)
   patients <- remaining[patients.in.icu][patient.icu.death]
   time.ICU.death <- rweibull(length(patient.icu.death), shape=1.4, scale=scale.ICU.death[patients])
+  state.cols <- col(matrix(state[j,patients,,drop=FALSE], nrow=length(patients), ncol=n.time))
   # Periodo entre HW y evento
   d1 <- i.final[patient.icu.death]
   d2 <- ceiling(i.final[patient.icu.death]+time.ICU.death)-1
-  state[j,patients,][col(state[j,patients,]) >= d1 & col(state[j,patients,]) <= d2] <- 'ICU'
+  state[j,patients,][state.cols >= d1 & state.cols <= d2] <- 'ICU'
   # Día de evento
   d3 <- ceiling(i.final[patient.icu.death]+time.ICU.death)
-  state[j,patients,][col(state[j,patients,]) == d3] <- 'ICU.Dead'
+  state[j,patients,][state.cols == d3] <- 'ICU.Dead'
   # Estado final
   final.state[j,patients] <- 'Dead'  
   
-  #------------------------------------------------------------------
+  #----------------------------------------------------------------#
   
   # Paciente va de UCI a HW
   patient.icu.hw <- which(v3>prob.ICU.death)
   patients <- remaining[patients.in.icu][patient.icu.hw]
   time.ICU.HW <-  rweibull(length(patient.icu.hw), shape=1.8, scale=scale.ICU.HW[patients] )
+  state.cols <- col(matrix(state[j,patients,,drop=FALSE], nrow=length(patients), ncol=n.time))
   # Periodo entre HW y evento
   d1 <- i.final[patient.icu.hw]
   d2 <- ceiling(i.final[patient.icu.hw]+time.ICU.HW)
-  tmp <- col(matrix(state[j,patients,,drop=FALSE], nrow=1, ncol=n.time))
-  state[j,patients,][tmp >= d1 & tmp <= d2] <- 'ICU'
+  state[j,patients,][state.cols >= d1 & state.cols <= d2] <- 'ICU'
   # Estado final
   final.state[j,patients] <- 'HOS'  
   
 }
-
-
 
 
 
