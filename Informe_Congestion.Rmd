@@ -20,11 +20,11 @@ output:
 ```{r global.options, include = FALSE}
 knitr::opts_chunk$set(
     cache       = TRUE,     # if TRUE knitr will cache the results to reuse in future knits
-    fig.width   = 10,       # the width for plots created by code chunk
-    fig.height  = 10,       # the height for plots created by code chunk
+    fig.width   = 12,       # the width for plots created by code chunk
+    fig.height  = 8,       # the height for plots created by code chunk
     fig.align   = 'center', # how to align graphics in the final doc. 
     warning     = FALSE,
-    cache       = TRUE
+    cache       = FALSE
 )
 ```
 
@@ -66,12 +66,6 @@ create.table <- function(df){
 }
 ```
 
-# Datos completos
-```{r}
-create.table(capacidad)
-create.table(casos.org)
-```
-
 
 ```{r, include=FALSE, cache=FALSE}
 knitr::read_chunk('sim_datos_agregados.R')
@@ -85,7 +79,7 @@ knitr::read_chunk('sim_datos_agregados.R')
 ```{r, Capacidad asistencial, echo=TRUE}
 ```
 
-# Probabilidades en simulacion
+# Probabilidades en simulación
 ```{r, Probabilidades en simulacion, echo=TRUE}
 ```
 
@@ -109,5 +103,5 @@ knitr::read_chunk('sim_datos_agregados.R')
 </details>
 
 # Examen de días por encima del límite
-```{r, Examen de días por encima del límite, echo=TRUE}
+```{r Examen de días por encima del límite, echo=FALSE}
 ```

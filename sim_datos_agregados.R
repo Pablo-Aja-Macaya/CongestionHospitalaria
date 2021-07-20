@@ -37,6 +37,10 @@ create.table <- function(df){
                 options = list(scrollX = TRUE, paging=TRUE))
 }
 
+# Datos completos
+create.table(capacidad)
+create.table(casos.org)
+
 # ---- Proporción de edades y sexos ---- 
 
 filter.cases <- function(df,area){
@@ -179,14 +183,14 @@ prob.ICU.death <- mean(subset(hospitalizados, ingreso_uci==1)$proporcion_muertos
 prob.ICU.HW <- 0.78
 
 
+list(prob.ICU=prob.ICU, prob.HW=prob.HW, prob.HW.death=prob.HW.death, prob.HW.ICU=prob.HW.ICU, prob.HW.disc=prob.HW.disc, prob.ICU.death=prob.ICU.death, prob.ICU.HW=prob.ICU.HW)
+
 
 # ------------- Weibull ---------------- 
 
 # Queda decidir de dónde se sacan los datos para esto 
 # (en sim_datos_individuales.R hay una implementación para datos antiguos individualizados)
 # Por ahora se usa la fórmula calculada a mano
-
-
 
 
 
@@ -570,7 +574,6 @@ n.ICU.inc.Dead.inc <- get.sim.results(res, 'n.ICU.inc.Dead.inc')
 
 
 # ---- Gráficas de resultados no condicionales ----
-
 
 nHOS.inc <- nICU.inc <- nDead.inc <- nDischarge.inc <- nH.Dead.inc <- nICU.inc.Dead  <- rep(0, length.out= n.time) 
 for (k in 1:n.time){
