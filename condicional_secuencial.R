@@ -4,7 +4,7 @@
 # ------ Variables de simulación ------- #
 ##########################################
 
-m <- 1000 # Number of samples m=1000
+m <- 100 # Number of samples m=1000
 n.ind <- 1000 # infected individuals N=1000
 n.time <- 250 # Number of days (follow-up time)
 
@@ -60,7 +60,7 @@ for (j in 1:m) {
   # We simulate the times of the patients in hospital (i in in.H)
   #----------------------------------------------------
   u <- runif(n.ind) # esto genera random deviates of the uniform distribution 
-  ind.H <- which(u<=prob.rc[j,]) # qué individuos tienen la valor alatorio u <= probabilidad de ser hospitalizados
+  ind.H <- which(u<=prob.rc[j,]) # qué individuos tienen el valor aleatorio u <= probabilidad de ser hospitalizados
   
   # Para cada individuo seleccionado (que tiene la enfermedad)
   for (i in ind.H){
