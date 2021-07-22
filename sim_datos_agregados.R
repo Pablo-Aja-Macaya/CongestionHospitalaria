@@ -27,7 +27,7 @@ par.m.loops <- par.m.size/10 # cuántas tandas
 
 #  Variables de datos
 area.sanitaria <- 'all' # si se pone 'all' se eligen todas
-casos.org <- data.frame(fread('datos/solicitud_BD_1.csv')) # casos base
+casos.org <- data.frame(fread('datos/20210722-PabloAja.csv')) # casos base
 capacidad <- data.frame(fread("datos/solicitud_BD.2.csv")) # capacidad asistencial
 names(capacidad) <- tolower(names(capacidad))
 
@@ -49,7 +49,7 @@ filter.cases <- function(df,area){
   if (area=='all'){
     casos <- df
   } else {
-    casos <- subset(df, area_sanitaria==area)
+    casos <- subset(df, areamovilidad==area)
   }
   return(casos)
 }
@@ -57,7 +57,7 @@ filter.cases <- function(df,area){
 get.group.total <- function(df, s){
   # Coge un dataframe y el sexo objetivo y saca el total de individuos para cada
   # rango de edad
-  grupos <- unique(subset(df, sexo==s)$grupo_edad)
+  grupos <- unique(subset(df, sexo==s & grupo_edad!='')$grupo_edad)
   grupos <- grupos[order(grupos)] # ordenar
   l <- list()
   for (g in grupos){
@@ -87,7 +87,8 @@ men.age.interval <- get.group.total(casos, 'H')
 get.mean.age <- function(interval.vector){
   tmp <- gsub("\\[|)", "", names(interval.vector))
   rango.edad <- strsplit(tmp, ',')
-  age.interval <- unlist(lapply(strsplit(tmp, ','), function(x){mean(as.numeric(x))}))
+  age.interval <- unlist(lapply(strsplit(tmp, '-'), function(x){mean(as.numeric(x), na.rm=T)}))
+  age.interval <- age.interval[!is.na(age.interval)]
   return(age.interval)
 }
 women.mean.age.interval <- get.mean.age(women.age.interval)
@@ -157,31 +158,28 @@ capacidad.asistencial
 
 # -- When a patient is admitted into the hospital -- #
 # Probability of going directly to ICU
-prob.ICU <- sum(subset(hospitalizados, ingreso_hospitalario==0 & ingreso_uci==1)$cantidad, na.rm=T) / sum(hospitalizados$cantidad, na.rm=T)
+prob.ICU <- sum(subset(hospitalizados, ingreso_uci=='Si' & primera_entrada=='UCI')$cantidad, na.rm=T) / sum(subset(hospitalizados, primera_entrada!='')$cantidad, na.rm=T)
 # Probability of staying in hospital ward first (Seguramente sea necesario el atributo de dirección si se quiere saber si es "first")
-prob.HW <- sum(subset(hospitalizados, ingreso_hospitalario==1)$cantidad, na.rm=T) / sum(hospitalizados$cantidad, na.rm=T)
+prob.HW <- sum(subset(hospitalizados, ingreso_hospitalario=='Si'  & primera_entrada=='HOSP')$cantidad, na.rm=T) / sum(subset(hospitalizados, primera_entrada!='')$cantidad, na.rm=T)
 
 
 # -- Options in HW -- #
 # Of those admitted in hospital ward, the probability of death without going to ICU is
-prob.HW.death <- mean(subset(hospitalizados, ingreso_hospitalario==1 & ingreso_uci==0)$proporcion_muertos, na.rm=T)
+prob.HW.death <- mean(subset(hospitalizados, ingreso_hospitalario=='Si' & ingreso_uci=='No')$proporcion_muertos, na.rm=T)
 # Probability that a patient admitted in hospital ward finally has to enter ICU
-prob.HW.ICU <- sum(subset(hospitalizados, ingreso_hospitalario==1 & ingreso_uci==1)$cantidad, na.rm=T) / sum(hospitalizados$cantidad, na.rm=T)
+prob.HW.ICU <- sum(subset(hospitalizados, ingreso_hospitalario=='Si' & ingreso_uci=='Si')$cantidad, na.rm=T) / sum(hospitalizados$cantidad, na.rm=T)
 # Probability that a patient admitted to hospital ward becomes discharged without entering ICU is (Esto no es del todo preciso, incluye a los que se mueren en HW)
-prob.HW.disc <- sum(subset(hospitalizados, ingreso_hospitalario==1 & ingreso_uci==0)$cantidad) / sum(hospitalizados$cantidad, na.rm=T)
+prob.HW.disc <- sum(subset(hospitalizados, ingreso_hospitalario=='Si' & ingreso_uci=='No')$cantidad, na.rm=T) / sum(hospitalizados$cantidad, na.rm=T)
 
 
 # -- Options in ICU -- #
 
 # Probability of dying after being admitted in ICU
-prob.ICU.death <- mean(subset(hospitalizados, ingreso_uci==1)$proporcion_muertos)
+prob.ICU.death <- mean(subset(hospitalizados, ingreso_uci=='Si')$proporcion_muertos, na.rm=T)
 
 # Probability of being transferred to hospital ward after being admitted in ICU
-### PROBLEMA: no se puede a no ser que se agrupe por un atributo extra, 
-# que sería "dirección" (si la fecha de discharge de UCI es menor que la de admission 
-# en HOSP entonces direccion=UCI.to.HOS)
-prob.ICU.HW <- 0.78
-
+### PROBLEMA: no se puede ser muy preciso con este campo por falta de datos
+prob.ICU.HW <- sum(subset(hospitalizados, ingreso_hospitalario=='Si' & ingreso_uci=='Si' & primera_entrada!='HOSP')$cantidad, na.rm=T)/ sum(subset(hospitalizados, primera_entrada!='')$cantidad, na.rm=T)
 
 list(prob.ICU=prob.ICU, prob.HW=prob.HW, prob.HW.death=prob.HW.death, prob.HW.ICU=prob.HW.ICU, prob.HW.disc=prob.HW.disc, prob.ICU.death=prob.ICU.death, prob.ICU.HW=prob.ICU.HW)
 
@@ -199,7 +197,7 @@ list(prob.ICU=prob.ICU, prob.HW=prob.HW, prob.HW.death=prob.HW.death, prob.HW.IC
 # Cada bucle paralelo crea una lista de resultados (n.HOS, n.ICU...)
 # Al final se tiene una lista de longitud=par.m.loops, cada una con una lista de resultados
 set.seed(123)
-system.time({
+
 res <- foreach (par.m=1:par.m.loops) %dopar% {
   age <- gender <- inf.time <- prob.rc <- final.state <- matrix(rep(NA, length.out=par.m.size*n.ind), nrow = par.m.size, ncol = n.ind) 
   state <- rep(NA, par.m.size*n.ind*n.time)
@@ -361,7 +359,7 @@ res <- foreach (par.m=1:par.m.loops) %dopar% {
   # Esta línea saca fuera del bucle paralelo la información
   list(n.HOS=n.HOS,n.ICU=n.ICU,n.H.Dead=n.H.Dead,n.Discharge=n.Discharge,n.ICU.Dead=n.ICU.Dead,n.Dead=n.Dead)
 }
-})
+
 stopImplicitCluster()
 
 # Ahora se juntan estos resultados

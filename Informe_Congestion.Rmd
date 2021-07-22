@@ -24,16 +24,16 @@ knitr::opts_chunk$set(
     fig.height  = 8,       # the height for plots created by code chunk
     fig.align   = 'center', # how to align graphics in the final doc. 
     warning     = FALSE,
-    cache       = TRUE
+    cache       = FALSE
 )
 ```
 
-# Introducción
-El objetivo de esta línea de investigación consiste en simular la infección de individuos por COVID-19 y estudiar la congestión hospitalaria en las distintas áreas sanitarias. Para ello, se usa un modelo estadístico de simulación, creado por Ana López-Cheda, María-Amalia Jácome, Ricardo Cao y Pablo M. De Salazar. 
+<!-- # Introducción -->
+<!-- El objetivo de esta línea de investigación consiste en simular la infección de individuos por COVID-19 y estudiar la congestión hospitalaria en las distintas áreas sanitarias. Para ello, se usa un modelo estadístico de simulación, creado por Ana López-Cheda, María-Amalia Jácome, Ricardo Cao y Pablo M. De Salazar.  -->
 
-En este modelo existen varias posibles etapas para un individuo: no infectado, infectado, hospitalizado... La transición entre etapas venía dada por variables fijas (probabilidad de pasar del hospital a UCI), pero en esta línea se consiguen adaptar los datos gallegos de SIVIES para encontrar estas probabilidades de una manera dinámica.
+<!-- En este modelo existen varias posibles etapas para un individuo: no infectado, infectado, hospitalizado... La transición entre etapas venía dada por variables fijas (probabilidad de pasar del hospital a UCI), pero en esta línea se consiguen adaptar los datos gallegos de SIVIES para encontrar estas probabilidades de una manera dinámica. -->
 
-No obstante, el aspecto principal de la línea es el uso de datos de capacidad asistencial de cada hospital para comprobar cuántos días puede estar sobrepasada cada área sanitaria y cuántos pacientes no tienen cama durante esta época. 
+<!-- No obstante, el aspecto principal de la línea es el uso de datos de capacidad asistencial de cada hospital para comprobar cuántos días puede estar sobrepasada cada área sanitaria y cuántos pacientes no tienen cama durante esta época.  -->
 
 # Librerías
 ```{r message=FALSE, warning=FALSE}
@@ -48,7 +48,7 @@ library(DT)
 
 
 # Variables
-Aquí se eligen variables importantes para la simulación, como el número de hilos, simulaciones, individuos y días. Además, se selecciona el área sanitaria, poniendo 'all' si se quieren todas. Así mismo, se cargan los datos de capacidad asistencial y de los casos de COVID-19.
+<!-- Aquí se eligen variables importantes para la simulación, como el número de hilos, simulaciones, individuos y días. Además, se selecciona el área sanitaria, poniendo 'all' si se quieren todas. Así mismo, se cargan los datos de capacidad asistencial y de los casos de COVID-19. -->
 ```{r}
 # Variables de simulación
 num.cores <- 6
@@ -63,7 +63,7 @@ par.m.loops <- par.m.size/10 # cuántas tandas
 
 #  Variables de datos
 area.sanitaria <- 'all' # si se pone 'all' se eligen todas
-casos.org <- data.frame(fread('datos/solicitud_BD_1.csv')) # casos base
+casos.org <- data.frame(fread('datos/20210722-PabloAja.csv')) # casos base
 capacidad <- data.frame(fread("datos/solicitud_BD.2.csv")) # capacidad asistencial
 names(capacidad) <- tolower(names(capacidad))
 
