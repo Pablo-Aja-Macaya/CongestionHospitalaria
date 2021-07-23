@@ -27,8 +27,8 @@ par.m.loops <- par.m.size/10 # cuántas tandas
 
 #  Variables de datos
 area.sanitaria <- 'all' # si se pone 'all' se eligen todas
-casos.org <- data.frame(fread('datos/20210722-PabloAja.csv')) # casos base
-capacidad <- data.frame(fread("datos/solicitud_BD.2.csv")) # capacidad asistencial
+casos.org <- data.frame(read_csv("datos/20210722-PabloAja.csv", locale = locale(encoding = "ISO-8859-1"))) # casos base
+capacidad <- data.frame(read_csv("datos/capacidadasistencial.csv", locale = locale(encoding = "ISO-8859-1"))) # capacidad asistencial
 names(capacidad) <- tolower(names(capacidad))
 
 # Para crear buenas tablas
@@ -134,24 +134,26 @@ prob.rc.real <- ( total.hosp ) / ( total )
 
 
 # ------ Capacidad asistencial --------- 
-get.capacity <- function(df, hosp, unidad){
+get.capacity <- function(df, hosp, u){
   if (hosp=='all'){
-    selected <- subset(df, unidad==unidad)    
+    selected <- subset(df, unidad==u)    
   } else {
-    selected <- subset(df, hospital==hosp & unidad==unidad)    
+    selected <- subset(df, hospital==hosp & unidad==u)    
   }
   stats <- list()
-  stats$average_total <- mean(selected$total_camas)
-  stats$average_ocupadas_covid <- mean(selected$ocupadas_covid19)
-  stats$average_ocupadas_no_covid <- mean(selected$ocupadas_no_covid19)
-  stats$average_ingresos_24_covid <- mean(selected$ingresos_24h_covid19)
-  stats$average_altas_24_covid <- mean(selected$altas_24h_covid19)
+  stats$average_total <- mean(selected$total_camas, na.rm=T)
+  stats$average_ocupadas_covid <- mean(selected$ocupadas_covid19, na.rm=T)
+  stats$average_ocupadas_no_covid <- mean(selected$ocupadas_no_covid19, na.rm=T)
+  stats$average_ingresos_24_covid <- mean(selected$ingresos_24h_covid19, na.rm=T)
+  stats$average_altas_24_covid <- mean(selected$altas_24h_covid19, na.rm=T)
   
   return(stats)
 }
-
-capacidad.asistencial <- get.capacity(capacidad, area.sanitaria, 'UCI')
-capacidad.asistencial
+capacidad.asistencial.uci <- get.capacity(capacidad, area.sanitaria, c('U. Críticas CON respirador','U. Críticas SIN respirador'))
+capacidad.asistencial.uci.respirador <- get.capacity(capacidad, area.sanitaria, 'U. Críticas CON respirador')
+capacidad.asistencial.uci.sin.respirador <- get.capacity(capacidad, area.sanitaria, 'U. Críticas SIN respirador')
+capacidad.asistencial.convencional <- get.capacity(capacidad, area.sanitaria, 'Hospitalización convencional')
+capacidad.asistencial.no.sanitarios <- get.capacity(capacidad, area.sanitaria, 'Centros no sanitarios')
 
 
 # ---- Probabilidades en simulacion ---- 
@@ -599,39 +601,43 @@ for (k in 1:n.time){
 
 # ---- Examen de días por encima del límite ----
 
-check.hosp.capacity <- function(hosp, hosp.completo, icu, icu.completo, neto, t){
+check.hosp.capacity <- function(hosp, icu, neto, t){
   # ---- Ver si en algún momento se superó el número de camas ---- #
-  sim.tot.hosp <- hosp+icu
-  cap <- capacidad.asistencial$average_total
+  cap.convencional <- capacidad.asistencial.convencional$average_total
+  cap.uci <- capacidad.asistencial.uci$average_total
+  cap.uci.respirador <- capacidad.asistencial.uci.respirador$average_total
+  cap.uci.sin.respirador <- capacidad.asistencial.uci.sin.respirador$average_total
   # Número de días que se sobrepasa
-  dias.sobrepasados <- sum(sim.tot.hosp>=cap)
+  sim.tot.hosp <- hosp+icu
+  dias.sobrepasados.convencional <- sum(sim.tot.hosp>=cap.convencional)
+  dias.sobrepasados.uci <- sum(icu>=cap.uci)
   
   # Gráficas
-  plot(NA, xlim=c(0,n.time), ylim=c(0,max(cap+20, max(sim.tot.hosp)+50)), xlab="Días", ylab="Casos", main=t)
-  abline(h=cap, col='red', lty=2)
-  abline(h=capacidad.asistencial$average_ocupadas_covid, col='orange', lty=2)
-  # abline(h=capacidad.asistencial$average_ingresos_24_covid, col='blue', lty=2)
-  # for(j in 1:m){
-  #   # Para cada simulación ver en cuántos días hay más gente en UCI y Hospital que camas
-  #   lines(icu.completo[j,]+hosp.completo[j,], col=alpha('black', 0.1))
-  # }
+  plot(NA, xlim=c(0,n.time), ylim=c(0,max(max(sim.tot.hosp)+20)), xlab="Días", ylab="Casos", main=t)
+  abline(h=cap.convencional, col='blue', lty=2)
+  abline(h=cap.uci, col='red', lty=2)  
+  abline(h=cap.uci.respirador, col='black', lty=2)  
+  abline(h=cap.uci.sin.respirador, col='orange', lty=2)  
+  
   lines(hosp, type="l",lty=1, lwd=2, col='pink')
   lines(icu, type="l",lty=1, lwd=2, col='red')
   lines(sim.tot.hosp, type="l",lty=1, lwd=2, col='orange')
   lines(neto,lty=1, lwd=2, col='green')
-  legend("topright", legend = c("nHOS", "nICU",'nHOS+nICU','Cambio neto (in-out)','Capacidad total media', 'Media ocupadas COVID'), 
-         col = c('pink','red','orange','green','red','orange'), lty=c(1,1,1,1,2,2), pch = c(NA,NA,NA,NA,NA), bty = "n")
-  title(sub=paste('Días sobrepasados: ', dias.sobrepasados), adj=1, line=3, font=2,cex.sub = 0.75)
   
+  legend("topright", legend = c("nHOS", "nICU",'nHOS+nICU','Cambio neto (in-out)','Capacidad convencional', 'Capacidad media UCI', 'Capacidad UCI (Resp)', 'Capacidad UCI (No resp)'),
+         col = c('pink','red','orange','green','blue','red','black','orange'), lty=c(1,1,1,1,2,2,2,2), pch = c(NA,NA,NA,NA,NA,NA,NA), bty = "n")
+  
+  title(sub=paste('Días sobrepasados en HOSP: ', dias.sobrepasados.convencional), adj=1, line=2, font=2,cex.sub = 0.75)
+  title(sub=paste('Días sobrepasados en UCI: ', dias.sobrepasados.uci), adj=1, line=3, font=2,cex.sub = 0.75)
   # Por cuánto se sobrepasa
   # plot(sim.tot.hosp[sim.tot.hosp>=cap]-cap, ylab='Pacientes sin cama', xlab='Días')
 }
 cambio.neto <- nHOS+nICU-(nDischarge+nDead+nH.Dead+nICU.Dead)
-check.hosp.capacity(nHOS, n.HOS, nICU, n.ICU, cambio.neto, t='No condicional')
+check.hosp.capacity(nHOS, nICU, cambio.neto, t='No condicional')
 
 
 cambio.neto <- nHOS.inc+nICU.inc-(nDischarge.inc+nDead.inc+nH.Dead.inc+nICU.inc.Dead)
-check.hosp.capacity(nHOS.inc, n.HOS.inc, nICU.inc, n.ICU.inc, cambio.neto, t='Condicional')
+check.hosp.capacity(nHOS.inc, nICU.inc, cambio.neto, t='Condicional')
 
 
 
