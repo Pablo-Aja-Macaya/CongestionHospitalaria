@@ -237,14 +237,13 @@ res <- foreach (par.m=1:par.m.loops) %dopar% {
     #----------------------------------------------------
     # We define the times with infection as the state "I"
     #----------------------------------------------------
-    system.time({
     for (i in 1:n.ind){
       # Ceiling redondea hacia arriba (1.1->2)
       # Los días previos al de infección son 0 y el de infección es I
       state[j, i, 1:(ceiling(inf.time[j,i])-1)] = 0
       state[j, i, ceiling(inf.time[j,i])] = "I"
     }
-    })
+
     #----------------------------------------------------
     # We simulate the times of the patients in hospital (i in in.H)
     #----------------------------------------------------
@@ -442,8 +441,6 @@ res <- foreach (par.m=1:par.m.loops) %dopar% {
     }  
     prob.rc[j,] <- prob.rc.real
     inf.time[j,] <-rnorm(n=n.ind, mean=60, sd=10)
-    # prob.rc[j,] <- ( (0.9-0.1*gender.inc[j,]) * exp(0.1*(age.inc[j,]-40)-gender.inc[j,]) ) / ( 1 + exp(0.1 * (age.inc[j,]-40) -gender.inc[j,]) )
-    # prob.rc[j,] <-  0.85* exp(-0.5)  / ( 1 + exp(-0.5) )
     
     #----------------------------------------------------
     # We define the times with infection as the state.inc "I"

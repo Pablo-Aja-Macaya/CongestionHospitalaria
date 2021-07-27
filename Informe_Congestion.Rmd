@@ -7,6 +7,7 @@ output:
     df_print: paged
     number_sections: true
 ---
+
 ```{=html}
 <style type="text/css">
 .main-container {
@@ -16,7 +17,6 @@ output:
 }
 </style>
 ```
-
 ```{r global.options, include = FALSE}
 knitr::opts_chunk$set(
     cache       = TRUE,     # if TRUE knitr will cache the results to reuse in future knits
@@ -24,18 +24,20 @@ knitr::opts_chunk$set(
     fig.height  = 8,       # the height for plots created by code chunk
     fig.align   = 'center', # how to align graphics in the final doc. 
     warning     = FALSE,
-    cache       = FALSE
+    cache       = TRUE
 )
 ```
 
-<!-- # Introducción -->
-<!-- El objetivo de esta línea de investigación consiste en simular la infección de individuos por COVID-19 y estudiar la congestión hospitalaria en las distintas áreas sanitarias. Para ello, se usa un modelo estadístico de simulación, creado por Ana López-Cheda, María-Amalia Jácome, Ricardo Cao y Pablo M. De Salazar.  -->
+# Introducción
 
-<!-- En este modelo existen varias posibles etapas para un individuo: no infectado, infectado, hospitalizado... La transición entre etapas venía dada por variables fijas (probabilidad de pasar del hospital a UCI), pero en esta línea se consiguen adaptar los datos gallegos de SIVIES para encontrar estas probabilidades de una manera dinámica. -->
+El objetivo de esta línea de investigación consiste en simular la infección de individuos por COVID-19 y estudiar la congestión hospitalaria en las distintas áreas sanitarias. Para ello, se usa un modelo estadístico de simulación, creado por Ana López-Cheda, María-Amalia Jácome, Ricardo Cao y Pablo M. De Salazar.
 
-<!-- No obstante, el aspecto principal de la línea es el uso de datos de capacidad asistencial de cada hospital para comprobar cuántos días puede estar sobrepasada cada área sanitaria y cuántos pacientes no tienen cama durante esta época.  -->
+En este modelo existen varias posibles etapas para un individuo: no infectado, infectado, hospitalizado... Cada individuo puede cambiar de estado a lo largo de la simulación. La transición estas entre etapas venía dada por variables fijas (probabilidad de pasar del hospital a UCI), pero en esta línea se consiguen adaptar los datos gallegos de SIVIES para encontrar estas probabilidades de una manera dinámica.
+
+No obstante, el aspecto principal de la línea es el uso de datos de capacidad asistencial de cada hospital para comprobar cuántos días puede estar sobrepasada cada área sanitaria y cuántos pacientes no tienen cama durante esta época. Esto puede indicar a cada área el número de camas suficiente para afrontar tales situaciones.
 
 # Librerías
+
 ```{r message=FALSE, warning=FALSE}
 library(Rlab)
 library(data.table)
@@ -45,18 +47,20 @@ library(doParallel)
 library(DT)
 ```
 
-
-
 # Variables
-<!-- Aquí se eligen variables importantes para la simulación, como el número de hilos, simulaciones, individuos y días. Además, se selecciona el área sanitaria, poniendo 'all' si se quieren todas. Así mismo, se cargan los datos de capacidad asistencial y de los casos de COVID-19. -->
+
+Aquí se eligen variables importantes para la simulación, como el número de hilos, simulaciones, individuos y días. Además, se selecciona el área sanitaria, poniendo 'all' si se quieren todas. Así mismo, se cargan los datos de capacidad asistencial y de los casos de COVID-19.
+
+El número de hilos (num.cores) elegidos depende del ordenador donde se vaya a ejecutar y de su RAM. Cuantos más se hilos se permitan más RAM ocupará la simulación. En principio 16 GB de RAM deberían ser suficientes para 10 hilos, mientras que con 6 hilos ocupa entre 5 y 8 GB.
+
 ```{r}
 # Variables de simulación
 num.cores <- 6
 registerDoParallel(num.cores) 
 
-m <- 1000 # Number of samples m=1000
-n.ind <- 1000 # infected individuals N=1000
-n.time <- 250 # Number of days (follow-up time)
+m <- 1000 # número de simulaciones
+n.ind <- 1000 # individuos simulados
+n.time <- 250 # número de días simulados
 
 par.m.size <- m/10 # cuántas simulaciones por núcleo
 par.m.loops <- par.m.size/10 # cuántas tandas
@@ -74,42 +78,96 @@ create.table <- function(df){
 }
 ```
 
-
 ```{r, include=FALSE, cache=FALSE}
 knitr::read_chunk('sim_datos_agregados.R')
 ```
 
 # Proporción de edades y sexos
+
+En este apartado se usa información agregada de SIVIES para obtener las probabilidades de infección y hospitalización para cada grupo de edad por sexo. Primero, se filtran los datos por área sanitaria, y se separan los grupos que están infectados (CASE) de los que han sido hospitalizados (HOS). Una vez hecho esto se obtienen las proporciones de hospitalización e infección de cada grupo (edad+sexo). Estas probabilidades guiarán la generación de individuos y su tasa de infección/hospitalización en la simulación.
+
 ```{r, Proporción de edades y sexos, echo=TRUE}
 ```
 
 # Capacidad asistencial
+
+A partir de la base de datos de CMC se obtienen el número de camas por hospital, tipo de hospital, área sanitaria (en el futuro), unidad (ej: UCI con ventiladores), camas totales, camas UCI y camas convencionales. Estos datos se filtran según la variable area.sanitaria elegida al principio, y servirán para ver el número de días que un área sanitaria se ha visto sobrepasada.
+
 ```{r, Capacidad asistencial, echo=TRUE}
 ```
 
 # Probabilidades en simulación
+
+Las probabilidades de transición entre cada estado se calculan a partir de la base de datos de SIVIES, al igual que se calcularon las proporciones de infectados/hospitalizados por rango de edad y sexo. No obstante, en este caso los cálculos realizados se usan durante la simulación, mientras que los del apartado 4 sólo al principio.
+
 ```{r, Probabilidades en simulacion, echo=TRUE}
 ```
 
-# Simulación paralelizada condicional
-<details><summary style="background-color: #f4f6f6 "><a>Mostrar código</a></summary>
+# Simulaciones
+
+En este apartado se realizan dos tipos de simulaciones, una en la que se tiene en cuenta la edad y sexo de los individuos para los parámetros de Weibull (condicional), y otra en la que no (no condicional). Con esto se intenta ver si los parámetros alteran los resultados.
+
+La idea es hacer j simulaciones, cada una con i individuos y k días. Para ello, se crea una matriz state, la cual se compone de esas 3 dimensiones (j, i, k), y varias matrices que almacenan las edades, sexos, días de infección, probabilidad de infección, estados finales de los individuos. Además, se crean varias para almacenar el número de ingresados en UCI, hospital, el número de muertos...
+
+Originalmente, estas simulaciones se realizaban en secuencial, usando un sólo hilo. El tiempo no era prohibitivo, 1 minuto para 1000 simulaciones, pero las matrices se almacenaban por completo, pudiendo provocar problemas de RAM. Por ambos motivos, se paraleliza la simulación, de tal manera que con 6 hilos se tardan 18 segundos para 1000 simulaciones, y la cantidad de RAM usada es menor porque cada hilo usa las matrices comentadas con menos simulaciones (Ej: en vez de 1000 simulaciones cada hilo hace matrices de 100) y cuando el hilo acaba se desechan las que no son necesarias, como state.
+
+## Simulación paralelizada condicional
+
+En el sistema condicional los parámetros de Weibull se calculan teniendo en cuenta el sexo y la edad.
+
+Para los pasos iniciales de cada simulación se hace lo siguiente:
+
+-   Se define el sexo de cada individuo con una distibución aleatoria de Bernoulli, usando las probabilidades calculadas en el apartado 4 y metiendo los resultados en la matriz gender.
+-   Con la distribución de edades reales se selecciona una etapa (ej: 54.5) y su probabilidad de hospitalización (ej: 0.28) para cada individuo según su sexo. Las edades se introducen en la matriz age y las probabilidades en prob.rc.
+-   Se calcula el día de infección de cada individuo con una distribución normal alrededor del día 60, y se mete el vector en la matriz inf.time.
+-   Desde el día 0 al día de infección para cada individuo se sustituyen los NAs por '0' en state. Tras esto, se sustituye el día de infección por 'I' en state.
+-   El siguiente paso es calcular la probabilidad de que cada individuo vaya a ingresar en el hospital, lo cual se hace con una distribución uniforme comparada con el valor de prob.rc en cada paciente.
+
+Una vez se han completado los pasos iniciales, se simulan las transiciones de estado de cada individuo hospitalizado:
+
+-   Se calcula el tiempo desde la infección hasta la hospitalización, poniendo 'I' en state hasta el día antes de la hospitalización.
+-   Se calculan las escalas de Weibull, basadas en el sexo y edad del paciente.
+-   Tras esto, se simula lo que pasa el primer día de hospitalización (si entra en HW o en UCI, y de estos si se muere, se va o se transfiere al otro) en base a una probabilidad uniforme aleatoria. Por ejemplo, si la probabilidad es menor que la probabilidad de entrar en hospital, el paciente ingresa en hospital. De ahí, si otra probabilidad calculada (v2) es menor que la probabilidad de morir en hospital se calcula el tiempo que pasa hasta su muerte con 'rweibull'. Trase esto, se rellenan los días hasta el día de la muerte con 'H', y el día de la muerte con 'H.Dead'. Después, se apunta en la matriz final.state el último estado final del paciente.
+
+Esto se repite para cada paciente hospitalizado, calculando el estado inicial. Una vez hecho esto, se simulan el resto de estados para los pacientes que siguen en 'HOS' o 'UCI' (ni se han muerto ni se les ha dado el alta). Se simula hasta que ningún paciente quede en el hospital o en UCI.
+
+Al final de todo este proceso se calcula el número de personas en UCI, hospitalizadas, muertas o dadas de alta por día. Estas son las matrices resultado. Como cada hilo produce una lista de matrices, es necesario juntarlas una a una mediante la función 'get.sim.results'.
+
+<details>
+
+<summary style="background-color: #f4f6f6 ">
+
+<a>Mostrar código</a>
+
+</summary>
+
 ```{r Simulación paralelizada condicional, echo=TRUE}
 ```
 
 ```{r, Gráficas de resultados condicionales, echo=TRUE}
 ```
+
 </details>
 
-# Simulación paralelizada no condicional
+## Simulación paralelizada no condicional
 
-<details><summary style="background-color: #f4f6f6 "><a>Mostrar código</a></summary>
+<details>
+
+<summary style="background-color: #f4f6f6 ">
+
+<a>Mostrar código</a>
+
+</summary>
+
 ```{r, Simulación paralelizada no condicional, echo=TRUE}
 ```
 
 ```{r, Gráficas de resultados no condicionales, echo=TRUE}
 ```
+
 </details>
 
 # Examen de días por encima del límite
+
 ```{r Examen de días por encima del límite, echo=FALSE}
 ```
