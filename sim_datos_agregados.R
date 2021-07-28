@@ -4,12 +4,19 @@
   # - Weibull (no se puede con datos reales entiendo)
   # - Simulacion
 
+# Notas:
+# - Calcular weibull a partir de los datos antiguos, pero aún así dejar cambiar los valores
+# - Hacer análisis estadístico de la capacidad asistencial (cuanto varían las camas por hospital y unidad en el tiempo)
+  # - De este análisis, usar mediana, percentil 10 y percentil 90 para las camas de un hospital
+# - Pedir áreas sanitarias o crear un diccionario para los 26 hospitales que indique el área sanitaria
+
 library(Rlab)
 library(data.table)
 library(scales)
 library(foreach)
 library(doParallel)
 library(DT)
+library(readr)
 
 
 # ---- Variables  ---- 
