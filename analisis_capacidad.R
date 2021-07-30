@@ -30,7 +30,7 @@ filter.cases <- function(df,a){
   }
   return(casos)
 }
-capacidad <- filter.cases(capacidad, 'Santiago de Compostela - Barbanza')
+capacidad <- filter.cases(capacidad, 'all')
 
 # Hospitales
 hospitales <- sort(unique(capacidad$hospital))
@@ -42,7 +42,7 @@ unidades <- sort(unique(capacidad$unidad))
 hospital.capacity.stats <- list()
 
 # Capacidad en cada hospital
-par(mfrow=c(2,3))
+par(mfrow=c(2,2))
 for (h in hospitales){
   # Inicialización de dataframe de unidades*medidas para el hospital
   hospital.capacity.stats[[h]] <- data.frame(matrix(ncol = length(unidades), nrow = 3))
@@ -66,16 +66,18 @@ for (h in hospitales){
     title(sub=paste('Percentil 90:', percentiles[['90%']]), adj=1, line=4, font=2,cex.sub = 0.75)
     
     # Plot de número de camas a lo largo de la pandemia
-    plot(total_camas ~ fecha_envio, tmp, xaxt = "n", type = "l", main=glue('{h} \n({u})'), xlab=NA)
-    axis.Date(1, at=seq(min(tmp$fecha_envio), max(tmp$fecha_envio), length.out=10), 
-              format='%b %Y', las=2, cex.axis=0.8)    
-
-    plot(ocupadas_covid19 ~ fecha_envio, tmp, ylim=c(0,max(tmp$ocupadas_no_covid19, tmp$ocupadas_covid19, na.rm=T)),
-         xaxt = "n", type="l",lty=2, lwd=2, col='red', ylab='ocupadas', xlab=NA,main=glue('{h} \n({u})'))
-    lines(ocupadas_no_covid19 ~ fecha_envio, tmp, type="l",lty=2, lwd=2, col='blue')
-    axis.Date(1, at=seq(min(tmp$fecha_envio), max(tmp$fecha_envio), length.out=10), 
-              format='%b %Y', las=2, cex.axis=0.8)  
+    plot(total_camas ~ fecha_envio, tmp, ylim=c(0,max(tmp$total_camas, na.rm=T)+10), xaxt = "n", type = "l", main=glue('{h} \n({u})'), xlab=NA)
+    lines(ocupadas_no_covid19 ~ fecha_envio, tmp, type="l",lty=1, lwd=0.5, col='blue')
+    lines(ocupadas_covid19 ~ fecha_envio, tmp, type="l",lty=1, lwd=0.5, col='red')
+    abline(h=mediana, col='darkorchid', lty=1)
+    abline(h=percentiles[['10%']], col='deeppink', lty=5)
+    abline(h=percentiles[['90%']], col='darkslateblue', lty=5)
     
+    axis.Date(1, at=seq(min(tmp$fecha_envio), max(tmp$fecha_envio), length.out=10), format='%b %Y', las=2, cex.axis=0.8)    
+
+    # legend("topright", legend = c('total_camas','COVID19','NO COVID19'),
+    #        col = c('black','red','blue'), lty=c(1,1,1), pch = c(NA,NA,NA), bty = "n")
+    # 
     # Meter resultados en la lista
     hospital.capacity.stats[[h]][[u]] <- c(mediana, percentiles[['10%']], percentiles[['90%']])
   }
@@ -86,21 +88,23 @@ par(mfrow=c(1,1))
 hospital.capacity.stats
 
 
-tmp <- hospital.capacity.stats[['COMPLEXO HOSPITALARIO UNIVERSITARIO DE OURENSE (CHUO)']]
-
+tmp <- hospital.capacity.stats[["COMPLEXO HOSPITALARIO UNIVERSITARIO DE SANTIAGO DE COMPOSTELA (CHUS)"]]
 plot(NA, xlim=c(0,100), ylim=c(0,1000))
 abline(h=tmp['Hospitalización convencional']['mediana',], col='blue', lty=1)
 abline(h=tmp['Hospitalización convencional']['percentil10',], col='red', lty=2)
 abline(h=tmp['Hospitalización convencional']['percentil90',], col='red', lty=2)
 
 
+lapply(hospital.capacity.stats, function(tmp){
+  plot(NA, xlim=c(0,100), ylim=c(0,1000))
+  abline(h=tmp['Hospitalización convencional']['mediana',], col='darkorchid', lty=1)
+  abline(h=tmp['Hospitalización convencional']['percentil10',], col='deeppink', lty=4)
+  abline(h=tmp['Hospitalización convencional']['percentil90',], col='darkslateblue', lty=4)
+  
+})
 
 
-tmp <- capacidad[order(capacidad$fecha_envio),]
-
-
-
-
-
+tmp <- subset(capacidad, hospital== "COMPLEXO HOSPITALARIO UNIVERSITARIO DE SANTIAGO DE COMPOSTELA (CHUS)"  &
+       unidad=='U. Críticas SIN respirador')
 
 
