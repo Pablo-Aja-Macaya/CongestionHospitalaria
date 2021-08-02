@@ -34,7 +34,8 @@ par.m.loops <- par.m.size/10 # cuántas tandas
 
 #  Variables de datos
 area.sanitaria <- 'all' # si se pone 'all' se eligen todas
-casos.org <- data.frame(read_csv("datos/20210722-PabloAja.csv", locale = locale(encoding = "ISO-8859-1"))) # casos base
+areas.hospitales <- data.frame(read_csv("datos/areas_hospitales_correspondencia.csv")) # correspondencia entre hospital y área
+casos.org <- data.frame(read_csv("datos/sivies_agreg_area_sanitaria.csv")) # casos base
 capacidad <- data.frame(read_csv("datos/capacidadasistencial.csv", locale = locale(encoding = "ISO-8859-1"))) # capacidad asistencial
 names(capacidad) <- tolower(names(capacidad))
 
@@ -49,14 +50,13 @@ create.table(capacidad)
 create.table(casos.org)
 
 # ---- Proporción de edades y sexos ---- 
-
 filter.cases <- function(df,area){
   # Filtra el dataframe de casos según área sanitaria
   # Si se pone 'all' se cogen todas las áreas
   if (area=='all'){
     casos <- df
   } else {
-    casos <- subset(df, areamovilidad==area)
+    casos <- subset(df, area.sanitaria==area)
   }
   return(casos)
 }
@@ -74,6 +74,8 @@ get.group.total <- function(df, s){
   return(unlist(l))
 }
 
+# Quitar grupos de edad nulos
+casos.org <- subset(casos.org, grupo_edad!='NULL')
 
 # Casos elegidos
 casos <- filter.cases(casos.org, area.sanitaria)
@@ -141,12 +143,18 @@ prob.rc.real <- ( total.hosp ) / ( total )
 
 
 # ------ Capacidad asistencial --------- 
-get.capacity <- function(df, hosp, u){
-  if (hosp=='all'){
-    selected <- subset(df, unidad==u)    
+filter.cap <- function(df,a){
+  # Filtra el dataframe de casos según área sanitaria
+  # Si se pone 'all' se cogen todas las áreas
+  if (a=='all'){
+    cap <- df
   } else {
-    selected <- subset(df, hospital==hosp & unidad==u)    
+    cap <- subset(df, area==a)
   }
+  return(cap)
+}
+
+get.capacity <- function(selected, u){
   stats <- list()
   stats$average_total <- mean(selected$total_camas, na.rm=T)
   stats$average_ocupadas_covid <- mean(selected$ocupadas_covid19, na.rm=T)
@@ -156,11 +164,26 @@ get.capacity <- function(df, hosp, u){
   
   return(stats)
 }
-capacidad.asistencial.uci <- get.capacity(capacidad, area.sanitaria, c('U. Críticas CON respirador','U. Críticas SIN respirador'))
-capacidad.asistencial.uci.respirador <- get.capacity(capacidad, area.sanitaria, 'U. Críticas CON respirador')
-capacidad.asistencial.uci.sin.respirador <- get.capacity(capacidad, area.sanitaria, 'U. Críticas SIN respirador')
-capacidad.asistencial.convencional <- get.capacity(capacidad, area.sanitaria, 'Hospitalización convencional')
-capacidad.asistencial.no.sanitarios <- get.capacity(capacidad, area.sanitaria, 'Centros no sanitarios')
+# Meter áreas sanitarias
+capacidad <- merge(areas.hospitales, capacidad, by='hospital')
+
+# Eliminar columna id (no hace falta)
+capacidad$id <- NULL
+
+# Filtrar por el área elegida
+capacidad <- filter.cap(capacidad, area.sanitaria)
+
+# Hospitales y unidades disponibles
+hospitales <- sort(unique(capacidad$hospital))
+unidades <- sort(unique(capacidad$unidad))
+
+# Obtener capacidad para cada unidad
+capacidad.asistencial.uci <- get.capacity(capacidad, c('U. Críticas CON respirador','U. Críticas SIN respirador'))
+capacidad.asistencial.uci.respirador <- get.capacity(capacidad, 'U. Críticas CON respirador')
+capacidad.asistencial.uci.sin.respirador <- get.capacity(capacidad, 'U. Críticas SIN respirador')
+capacidad.asistencial.convencional <- get.capacity(capacidad, 'Hospitalización convencional')
+capacidad.asistencial.no.sanitarios <- get.capacity(capacidad, 'Centros no sanitarios')
+
 
 
 # ---- Probabilidades en simulacion ---- 
@@ -207,7 +230,7 @@ list(prob.ICU=prob.ICU, prob.HW=prob.HW, prob.HW.death=prob.HW.death, prob.HW.IC
 # Al final se tiene una lista de longitud=par.m.loops, cada una con una lista de resultados
 set.seed(123)
 
-res <- foreach (par.m=1:par.m.loops) %dopar% {
+res <- foreach (par.m=1:par.m.loops, .errorhandling="stop") %dopar% {
   age <- gender <- inf.time <- prob.rc <- final.state <- matrix(rep(NA, length.out=par.m.size*n.ind), nrow = par.m.size, ncol = n.ind) 
   state <- rep(NA, par.m.size*n.ind*n.time)
   dim(state) <- c(par.m.size, n.ind, n.time)
@@ -314,6 +337,10 @@ res <- foreach (par.m=1:par.m.loops) %dopar% {
         # También pueden tener NAs (time without state) en el que todavía no sabemos qué le pasó,
         # Sabemos que está en HOS o ICU pero ahora se simula lo que le pasa
         i.final <- min(which(is.na(state[j,i,]))) # Lowest time without state
+        if (is.infinite(i.final)){
+          # Se sobrepasa del tiempo de simulación
+          break
+        }
         
         v1 <- runif(1)
         #---------------------------------------------
@@ -345,7 +372,7 @@ res <- foreach (par.m=1:par.m.loops) %dopar% {
             final.state[j,i] = "Dead"
           } else {# Patient goes to hospital ward
             time.ICU.HW <- rweibull(1, shape=1.8, scale=scale.ICU.HW ) # Time since admission in ICU till return to ward
-            state[j,i,i.final : ceiling(i.final+time.ICU.HW) ] = "ICU"
+            state[j,i,i.final :pmin(n.time, ceiling(i.final+time.ICU.HW))] = "ICU"
             final.state[j,i] = "HOS"
           }}
       } # end while
@@ -418,7 +445,7 @@ scale.HW.ICU <- 4.2
 # Cada bucle paralelo crea una lista de resultados (n.HOS, n.ICU...)
 # Al final se tiene una lista de longitud=par.m.loops, cada una con una lista de resultados
 set.seed(123)
-res <- foreach (par.m=1:par.m.loops) %dopar% {
+res <- foreach (par.m=1:par.m.loops, .errorhandling="stop") %dopar% {
   age.inc <- gender.inc <- inf.time <- prob.rc <- final.state.inc <- matrix(rep(NA, length.out=par.m.size*n.ind), nrow = par.m.size, ncol = n.ind) 
   n.HOS.inc <- n.ICU.inc <- n.Dead.inc <- n.Discharge.inc <- n.H.Dead.inc <- n.ICU.inc.Dead.inc  <- matrix(rep(NA, length.out= par.m.size*n.time), nrow = par.m.size, ncol = n.time)
   state.inc <- rep(NA, par.m.size*n.ind*n.time)
@@ -519,17 +546,17 @@ res <- foreach (par.m=1:par.m.loops) %dopar% {
           v2 <- runif(1)
           if (v2 <= prob.HW.death) {# Patient dies in HW
             time.HW.death <- rexp(1, 0.1)# Of those admitted in hospital ward, the time to death 
-            state.inc[j, i, i.final: ceiling(i.final+time.HW.death)-1] = "H"
-            state.inc[j, i, ceiling(i.final+time.HW.death)] = "H.Dead"
+            state.inc[j, i, i.final: pmin(n.time,ceiling(i.final+time.HW.death)-1)] = "H"
+            state.inc[j, i, pmin(n.time,ceiling(i.final+time.HW.death))] = "H.Dead"
             final.state.inc[j,i] = "Dead"
           } else if ( (v2 > prob.HW.death) && (v2 <= prob.HW.death+prob.HW.ICU) ) {# Patient goes to ICU
             time.HW.ICU <- rweibull(1, shape=1.6, scale=scale.HW.ICU)# Time since hospital ward admission to ICU
-            state.inc[j,i,i.final: ceiling(i.final+time.HW.ICU)] = "H"
+            state.inc[j,i,i.final: pmin(n.time,ceiling(i.final+time.HW.ICU))] = "H"
             final.state.inc[j,i] = "ICU"
           } else {# Patient discharged
             time.HW.disc <- rweibull(1, shape=2.6, scale=scale.HW.disc)# Time since hospital ward admission to discharge is
-            state.inc[j,i,i.final: ceiling(i.final+time.HW.disc)-1] = "H"
-            state.inc[j,i,ceiling(i.final+time.HW.disc)] = "H.Discharge"
+            state.inc[j,i,i.final: pmin(n.time,ceiling(i.final+time.HW.disc)-1)] = "H"
+            state.inc[j,i,pmin(n.time,ceiling(i.final+time.HW.disc))] = "H.Discharge"
             final.state.inc[j,i] = "Discharge"}
         } else {
           #---------------------------------------------
@@ -537,12 +564,12 @@ res <- foreach (par.m=1:par.m.loops) %dopar% {
           v3 <- runif(1)
           if (v3 <= prob.ICU.death) {# Patient dies in ICU
             time.ICU.death <- rweibull(1, shape=1.4, scale=scale.ICU.death)# Time from admission in ICU to death
-            state.inc[j,i,i.final : ceiling(i.final+time.ICU.death)-1] = "ICU"
-            state.inc[j,i,ceiling(i.final+time.ICU.death)] = "ICU.Dead"
+            state.inc[j,i,i.final : pmin(n.time,ceiling(i.final+time.ICU.death)-1)] = "ICU"
+            state.inc[j,i,pmin(n.time,ceiling(i.final+time.ICU.death))] = "ICU.Dead"
             final.state.inc[j,i] = "Dead"
           } else {# Patient goes to hospital ward
             time.ICU.HW <- rweibull(1, shape=1.8, scale=scale.ICU.HW ) # Time since admission in ICU till return to ward
-            state.inc[j,i,i.final : ceiling(i.final+time.ICU.HW)] = "ICU"
+            state.inc[j,i,i.final : pmin(n.time,ceiling(i.final+time.ICU.HW))] = "ICU"
             final.state.inc[j,i] = "HOS"
           }}
         
@@ -606,6 +633,7 @@ for (k in 1:n.time){
 # ---- Examen de días por encima del límite ----
 
 check.hosp.capacity <- function(hosp, icu, neto, t){
+  par(mfrow=c(1,1))
   # ---- Ver si en algún momento se superó el número de camas ---- #
   cap.convencional <- capacidad.asistencial.convencional$average_total
   cap.uci <- capacidad.asistencial.uci$average_total
@@ -637,11 +665,11 @@ check.hosp.capacity <- function(hosp, icu, neto, t){
   # plot(sim.tot.hosp[sim.tot.hosp>=cap]-cap, ylab='Pacientes sin cama', xlab='Días')
 }
 cambio.neto <- nHOS+nICU-(nDischarge+nDead+nH.Dead+nICU.Dead)
-check.hosp.capacity(nHOS, nICU, cambio.neto, t='No condicional')
+check.hosp.capacity(nHOS, nICU, cambio.neto, t='Condicional')
 
 
 cambio.neto <- nHOS.inc+nICU.inc-(nDischarge.inc+nDead.inc+nH.Dead.inc+nICU.inc.Dead)
-check.hosp.capacity(nHOS.inc, nICU.inc, cambio.neto, t='Condicional')
+check.hosp.capacity(nHOS.inc, nICU.inc, cambio.neto, t='No condicional')
 
 
 
