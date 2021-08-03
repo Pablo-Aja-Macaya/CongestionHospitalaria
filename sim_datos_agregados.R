@@ -17,7 +17,7 @@ library(foreach)
 library(doParallel)
 library(DT)
 library(readr)
-
+library(dplyr)
 
 # ---- Variables  ---- 
 
@@ -230,7 +230,7 @@ list(prob.ICU=prob.ICU, prob.HW=prob.HW, prob.HW.death=prob.HW.death, prob.HW.IC
 # Al final se tiene una lista de longitud=par.m.loops, cada una con una lista de resultados
 set.seed(123)
 
-res <- foreach (par.m=1:par.m.loops, .errorhandling="stop") %dopar% {
+res <- foreach (par.m=1:par.m.loops, .errorhandling="pass") %dopar% {
   age <- gender <- inf.time <- prob.rc <- final.state <- matrix(rep(NA, length.out=par.m.size*n.ind), nrow = par.m.size, ncol = n.ind) 
   state <- rep(NA, par.m.size*n.ind*n.time)
   dim(state) <- c(par.m.size, n.ind, n.time)
@@ -445,7 +445,7 @@ scale.HW.ICU <- 4.2
 # Cada bucle paralelo crea una lista de resultados (n.HOS, n.ICU...)
 # Al final se tiene una lista de longitud=par.m.loops, cada una con una lista de resultados
 set.seed(123)
-res <- foreach (par.m=1:par.m.loops, .errorhandling="stop") %dopar% {
+res <- foreach (par.m=1:par.m.loops, .errorhandling="pas") %dopar% {
   age.inc <- gender.inc <- inf.time <- prob.rc <- final.state.inc <- matrix(rep(NA, length.out=par.m.size*n.ind), nrow = par.m.size, ncol = n.ind) 
   n.HOS.inc <- n.ICU.inc <- n.Dead.inc <- n.Discharge.inc <- n.H.Dead.inc <- n.ICU.inc.Dead.inc  <- matrix(rep(NA, length.out= par.m.size*n.time), nrow = par.m.size, ncol = n.time)
   state.inc <- rep(NA, par.m.size*n.ind*n.time)

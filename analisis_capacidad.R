@@ -6,6 +6,7 @@ library(doParallel)
 library(DT)
 library(readr)
 library(glue)
+library(dplyr)
 
 #  Variables de datos
 area.sanitaria <- 'all' # si se pone 'all' se eligen todas
@@ -32,6 +33,12 @@ filter.cases <- function(df,a){
 }
 capacidad <- filter.cases(capacidad, 'all')
 
+# Filtrar por referencia
+# capacidad <- subset(capacidad, referencia==1)
+
+# Añadir total de ocupadas
+capacidad$total_ocupadas <- capacidad$ocupadas_covid19 + capacidad$ocupadas_no_covid19
+
 # Hospitales
 hospitales <- sort(unique(capacidad$hospital))
 
@@ -54,13 +61,17 @@ for (h in hospitales){
     datos <- datos[order(datos$fecha_envio),]
 
     tot <- datos$total_camas
+    fechas <- datos$fecha_envio
+    tot.ocupadas <- datos$total_ocupadas
     
-    # Añadir total de ocupadas
-    datos$total_ocupadas <- datos$ocupadas_covid19 + datos$ocupadas_no_covid19
-
     # Mediana y percentiles
     mediana <- median(tot, na.rm=T)
     percentiles <- quantile(tot, probs = seq(0, 1, by= 0.1), na.rm=T)
+    
+    # Calcular en qué puntos se vería sobrepasado el hospital
+    min.sobrepasado <- fechas[which(tot.ocupadas>percentiles[['10%']])]
+    max.sobrepasado <- fechas[which(tot.ocupadas>percentiles[['90%']])]
+    median.sobrepasado <- fechas[which(tot.ocupadas>mediana)]
     
     # Histograma
     hist(tot, main=glue('{h} \n({u})'), col='gray', xlab='Total camas') 
@@ -69,15 +80,34 @@ for (h in hospitales){
     title(sub=paste('Percentil 90:', percentiles[['90%']]), adj=1, line=4, font=2,cex.sub = 0.75)
     
     # Plot de número de camas a lo largo de la pandemia
-    plot(total_camas ~ fecha_envio, datos, ylim=c(0,max(datos$total_camas, na.rm=T)+10), xaxt = "n", type = "l", main=glue('{h} \n({u})'), xlab=NA)
-    lines(ocupadas_no_covid19 ~ fecha_envio, datos, type="l",lty=1, lwd=0.5, col='blue')
-    lines(ocupadas_covid19 ~ fecha_envio, datos, type="l",lty=1, lwd=0.5, col='red')
-    lines(total_ocupadas ~ fecha_envio, datos, type="l",lty=1, lwd=0.5, col='green')
+    plot(total_camas ~ fecha_envio, datos, ylim=c(0,max(tot, na.rm=T)+10), xaxt = "n", type = "l", main=glue('{h} \n({u})'), xlab=NA)
+    for (d in min.sobrepasado){
+      rect(d-1,0-20,
+           d+1,max(tot, na.rm=T)+20,
+           col= rgb(1,0,0,alpha=0.1), lwd=0)      
+    }
+    for (d in max.sobrepasado){
+      rect(d-1,0-20,
+           d+1,max(tot, na.rm=T)+20,
+           col= rgb(1,0,0,alpha=0.5), lwd=0)      
+    }
+    for (d in median.sobrepasado){
+      rect(d-1,0-20,
+           d+1,max(tot, na.rm=T)+20,
+           col= rgb(1,0,0,alpha=0.25), lwd=0)      
+    }
+    rect(fechas[1]-20,percentiles[['10%']],
+         fechas[length(fechas)]+20,percentiles[['90%']],
+         col= rgb(0,0,1,alpha=0.05), lwd=0)
+    lines(ocupadas_no_covid19 ~ fecha_envio, datos, type="l",lty=1, lwd=1, col='blue')
+    lines(ocupadas_covid19 ~ fecha_envio, datos, type="l",lty=1, lwd=1, col='red')
+    lines(total_ocupadas ~ fecha_envio, datos, type="l",lty=1, lwd=1, col='green')
     abline(h=mediana, col='darkorchid', lty=1)
-    abline(h=percentiles[['10%']], col='deeppink', lty=5)
-    abline(h=percentiles[['90%']], col='darkslateblue', lty=5)
-    
-    axis.Date(1, at=seq(min(datos$fecha_envio), max(datos$fecha_envio), length.out=10), format='%b %Y', las=2, cex.axis=0.8)    
+    # abline(h=percentiles[['10%']], col='deeppink', lty=5)
+    # abline(h=percentiles[['90%']], col='darkslateblue', lty=5)
+
+
+    axis.Date(1, at=seq(min(fechas), max(fechas), length.out=10), format='%b %Y', las=2, cex.axis=0.8)    
 
     # legend("topright", legend = c('total_camas','COVID19','NO COVID19'),
     #        col = c('black','red','blue'), lty=c(1,1,1), pch = c(NA,NA,NA), bty = "n")
@@ -111,7 +141,10 @@ plot.capacity.intervals <- function(capacity.stats, unidad){
   plot(NA, xlim=c(0,100), ylim=c(0,max(area.capacity.stats[,unidad])+10))
   abline(h=area.capacity.stats['mediana',unidad], col='blue', lty=1)
   abline(h=area.capacity.stats['percentil10',unidad], col='red', lty=2)
-  abline(h=area.capacity.stats['percentil90',unidad], col='red', lty=2)  
+  abline(h=area.capacity.stats['percentil90',unidad], col='red', lty=2) 
+  rect(0,area.capacity.stats['percentil90',unidad],
+       100,area.capacity.stats['percentil10',unidad],
+       col= rgb(0,0,1.0,alpha=0.1), lwd=0)
 }
 
 plot.capacity.intervals(area.capacity.stats,'Hospitalización convencional')
