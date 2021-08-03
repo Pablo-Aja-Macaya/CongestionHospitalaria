@@ -243,47 +243,43 @@ weibull.HW.disc.men <- get.conditional.weibull.parameters(tmp, levels(datos.sele
 ### FALTA ###
 
 
-# Prueba para acceder a datos
-tmp <- as.data.frame(weibull.HW.ICU.women)
-names(tmp) <- names(weibull.HW.ICU.women)
-tmp <- as.data.frame(t(rbind(tmp, sexo=0)))
-tmp$edad <- rownames(tmp)
-rownames(tmp) <- NULL
-
-
-weibull.unkwown.population <- function(vec, parameter, tittle=''){
-  # Intentar encontrar parámetros para la parte de la población que no aparece
-  # en los datos
-  y <- c()
-  for (n in names(vec)){
-    if (!is.na(vec[[n]][parameter])){
-      y <- c(y, vec[[n]][parameter])
-    }
-  }
-  tmp <- data.frame(x=1:length(y),y=y)
-  par(mfrow=c(1,2))
-  plot(tmp, main=tittle)
-  abline(lm(y ~ x, data = tmp))
-  library(drc)
-  fm <- drm(y ~ x, data = tmp, fct = G.3())
-  plot(fm, main=tittle)
-  par(mfrow=c(1,1))
+get.mean.age <- function(interval.vector){
+  tmp <- gsub("\\[|)", "", interval.vector)
+  rango.edad <- strsplit(tmp, ',')
+  age.interval <- unlist(lapply(rango.edad, function(x){mean(as.numeric(x), na.rm=T)}))
+  age.interval <- age.interval[!is.na(age.interval)]
+  return(age.interval)
 }
 
-p <- 2
-weibull.unkwown.population(weibull.HW.ICU.women, p, 'scale.HW.ICU.women')
-weibull.unkwown.population(weibull.ICU.death.women, p, 'scale.ICU.death.women')
-weibull.unkwown.population(weibull.HW.disc.women, p, 'scale.HW.disc.women')
+# Prueba para acceder a datos
+get.weibull.lm <- function(res.list){
+  tmp <- as.data.frame(res.list)
+  names(tmp) <- names(res.list)
+  tmp <- as.data.frame(t(rbind(tmp, sexo=0)))
+  tmp$grupo <- rownames(tmp)
+  rownames(tmp) <- NULL
+  tmp$edad <- get.mean.age(tmp$grupo)
+  
+  m.scale <- lm(scale ~ edad + sexo, data = tmp)
+  m.shape <- lm(shape ~ edad + sexo, data = tmp)
+  
+  par(mfrow=c(1,2))
+  
+  plot(tmp[,c('edad', 'scale')], main='Scale')
+  abline(m.scale)  
+  
+  plot(tmp[,c('edad', 'shape')], main='Shape')
+  abline(m.shape)  
+  
+  par(mfrow=c(1,1))
+  
+  return(m.scale)
+  
+}
+m <- get.weibull.lm(weibull.HW.ICU.women)
+get.weibull.lm(weibull.ICU.death.women)
+get.weibull.lm(weibull.HW.disc.women)
 
-weibull.unkwown.population(weibull.HW.ICU.men, p, 'scale.HW.ICU.men')
-weibull.unkwown.population(weibull.ICU.death.men, p, 'scale.ICU.death.men')
-weibull.unkwown.population(weibull.HW.disc.men, p, 'scale.HW.disc.men')
-
-p <- 1
-weibull.unkwown.population(weibull.HW.ICU.women, p, 'shape.HW.ICU.women')
-weibull.unkwown.population(weibull.ICU.death.women, p, 'shape.ICU.death.women')
-weibull.unkwown.population(weibull.HW.disc.women, p, 'shape.HW.disc.women')
-
-weibull.unkwown.population(weibull.HW.ICU.men, p, 'shape.HW.ICU.men')
-weibull.unkwown.population(weibull.ICU.death.men, p, 'shape.ICU.death.men')
-weibull.unkwown.population(weibull.HW.disc.men, p, 'shape.HW.disc.men')
+get.weibull.lm(weibull.HW.ICU.men)
+get.weibull.lm(weibull.ICU.death.men)
+get.weibull.lm(weibull.HW.disc.men)
