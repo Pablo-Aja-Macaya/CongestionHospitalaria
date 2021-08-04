@@ -18,6 +18,7 @@ library(doParallel)
 library(DT)
 library(readr)
 library(dplyr)
+library(glue)
 
 # ---- Variables  ---- 
 
@@ -33,30 +34,34 @@ par.m.size <- m/10 # cuántas simulaciones por núcleo
 par.m.loops <- par.m.size/10 # cuántas tandas
 
 #  Variables de datos
-area.sanitaria <- 'all' # si se pone 'all' se eligen todas
+area.sanitaria <- 'Coruña - Cee' # si se pone 'all' se eligen todas
 areas.hospitales <- data.frame(read_csv("datos/areas_hospitales_correspondencia.csv")) # correspondencia entre hospital y área
 casos.org <- data.frame(read_csv("datos/sivies_agreg_area_sanitaria.csv")) # casos base
-capacidad <- data.frame(read_csv("datos/capacidadasistencial.csv", locale = locale(encoding = "ISO-8859-1"))) # capacidad asistencial
-names(capacidad) <- tolower(names(capacidad))
 
 # Para crear buenas tablas
-create.table <- function(df){
+create.table <- function(df, capt){
   DT::datatable(df, extensions = c('FixedColumns'),
-                options = list(scrollX = TRUE, paging=TRUE))
+                options = list(scrollX = TRUE, paging=TRUE), 
+                caption=htmltools::tags$caption(
+                  style = 'caption-side: bottom; text-align: center; color: black;',
+                  htmltools::em(capt)
+                ))
 }
 
-# Datos completos
-create.table(capacidad)
-create.table(casos.org)
+
 
 # ---- Proporción de edades y sexos ---- 
+# Datos completos
+# create.table(capacidad)
+create.table(casos.org, 'Casos y hospitalizados')
+
 filter.cases <- function(df,area){
   # Filtra el dataframe de casos según área sanitaria
   # Si se pone 'all' se cogen todas las áreas
   if (area=='all'){
     casos <- df
   } else {
-    casos <- subset(df, area.sanitaria==area)
+    casos <- subset(df, area_sanitaria==area)
   }
   return(casos)
 }
@@ -79,11 +84,11 @@ casos.org <- subset(casos.org, grupo_edad!='NULL')
 
 # Casos elegidos
 casos <- filter.cases(casos.org, area.sanitaria)
-create.table(casos)
+create.table(casos, 'Casos elegidos')
 
 # Hospitalizados en estos casos
 hospitalizados <- subset(casos, estado=='HOS')
-create.table(hospitalizados)
+create.table(hospitalizados, 'Hospitalizados')
 
 # -- Proporciones de casos -- #
 women.age.interval <- get.group.total(casos, 'M')
@@ -142,48 +147,8 @@ prob.rc.man <- men.age.hosp.interval/men.age.interval
 prob.rc.real <- ( total.hosp ) / ( total )
 
 
-# ------ Capacidad asistencial --------- 
-filter.cap <- function(df,a){
-  # Filtra el dataframe de casos según área sanitaria
-  # Si se pone 'all' se cogen todas las áreas
-  if (a=='all'){
-    cap <- df
-  } else {
-    cap <- subset(df, area==a)
-  }
-  return(cap)
-}
-
-get.capacity <- function(selected, u){
-  stats <- list()
-  stats$average_total <- mean(selected$total_camas, na.rm=T)
-  stats$average_ocupadas_covid <- mean(selected$ocupadas_covid19, na.rm=T)
-  stats$average_ocupadas_no_covid <- mean(selected$ocupadas_no_covid19, na.rm=T)
-  stats$average_ingresos_24_covid <- mean(selected$ingresos_24h_covid19, na.rm=T)
-  stats$average_altas_24_covid <- mean(selected$altas_24h_covid19, na.rm=T)
-  
-  return(stats)
-}
-# Meter áreas sanitarias
-capacidad <- merge(areas.hospitales, capacidad, by='hospital')
-
-# Eliminar columna id (no hace falta)
-capacidad$id <- NULL
-
-# Filtrar por el área elegida
-capacidad <- filter.cap(capacidad, area.sanitaria)
-
-# Hospitales y unidades disponibles
-hospitales <- sort(unique(capacidad$hospital))
-unidades <- sort(unique(capacidad$unidad))
-
-# Obtener capacidad para cada unidad
-capacidad.asistencial.uci <- get.capacity(capacidad, c('U. Críticas CON respirador','U. Críticas SIN respirador'))
-capacidad.asistencial.uci.respirador <- get.capacity(capacidad, 'U. Críticas CON respirador')
-capacidad.asistencial.uci.sin.respirador <- get.capacity(capacidad, 'U. Críticas SIN respirador')
-capacidad.asistencial.convencional <- get.capacity(capacidad, 'Hospitalización convencional')
-capacidad.asistencial.no.sanitarios <- get.capacity(capacidad, 'Centros no sanitarios')
-
+# ------ Capacidad asistencial --------- #
+source('analisis_capacidad.R')
 
 
 # ---- Probabilidades en simulacion ---- 
@@ -397,6 +362,8 @@ res <- foreach (par.m=1:par.m.loops, .errorhandling="pass") %dopar% {
 
 stopImplicitCluster()
 
+
+# ----- Resultados condicionales ---- 
 # Ahora se juntan estos resultados
 get.sim.results <- function(res, name){
   return(do.call(rbind, lapply(res, function(x){x[[name]]})))
@@ -408,10 +375,7 @@ n.Discharge <- get.sim.results(res, 'n.Discharge')
 n.ICU.Dead <- get.sim.results(res, 'n.ICU.Dead')
 n.Dead <- get.sim.results(res, 'n.Dead')
 
-
-
-# ----- Gráficas de resultados condicionales ---- 
-
+# Se calcula el número de individuos por día en cada categoría
 nHOS <- nICU <- nDead <- nDischarge <- nH.Dead <- nICU.Dead  <- rep(0, length.out= n.time) 
 for (k in 1:n.time){
   nHOS[k] <- sum(n.HOS[,k], na.rm=T)/m
@@ -421,16 +385,6 @@ for (k in 1:n.time){
   nH.Dead[k] <- sum(n.H.Dead[,k], na.rm=T)/m
   nICU.Dead[k] <- sum(n.ICU.Dead[,k], na.rm=T)/m
 }
-
-# t <- seq(1, n.time)
-# plot(t, nHOS, type="l",lty=1, lwd=2, col=1)
-# plot(t, nICU, type="l",lty=1, lwd=2, col=1)
-# plot(t, nDead, type="l",lty=1, lwd=2, col=1)
-# plot(t, nH.Dead, type="l",lty=1, lwd=2, col=1)
-# 
-# plot(t, nDischarge, type="l", lty=1, lwd=2, col=1)
-# barplot(nDischarge)
-
 
 
 # ---- Simulación paralelizada no condicional ----
@@ -594,6 +548,8 @@ res <- foreach (par.m=1:par.m.loops, .errorhandling="pas") %dopar% {
 }
 stopImplicitCluster()
 
+
+# ---- Resultados no condicionales ----
 # Ahora se juntan estos resultados
 get.sim.results <- function(res, name){
   return(do.call(rbind, lapply(res, function(x){x[[name]]})))
@@ -606,9 +562,7 @@ n.Discharge.inc <- get.sim.results(res, 'n.Discharge.inc')
 n.H.Dead.inc <- get.sim.results(res, 'n.H.Dead.inc')
 n.ICU.inc.Dead.inc <- get.sim.results(res, 'n.ICU.inc.Dead.inc')
 
-
-# ---- Gráficas de resultados no condicionales ----
-
+# Se calcula el número de individuos por día en cada categoría
 nHOS.inc <- nICU.inc <- nDead.inc <- nDischarge.inc <- nH.Dead.inc <- nICU.inc.Dead  <- rep(0, length.out= n.time) 
 for (k in 1:n.time){
   nHOS.inc[k] <- sum(n.HOS.inc[,k], na.rm=T)/m
@@ -619,26 +573,15 @@ for (k in 1:n.time){
   nICU.inc.Dead[k] <-sum(n.ICU.inc.Dead.inc[,k], na.rm=T)/m
 }
 
-# t <- seq(1, n.time)
-# plot(t, nHOS.inc, type="l",lty=1, lwd=2, col=1)
-# plot(t, nICU.inc, type="l",lty=1, lwd=2, col=1)
-# plot(t, nDead.inc, type="l",lty=1, lwd=2, col=1)
-# plot(t, nH.Dead.inc, type="l",lty=1, lwd=2, col=1)
-# 
-# plot(t, nDischarge.inc, type="l", lty=1, lwd=2, col=1)
-# barplot(nDischarge.inc)
-
-
 
 # ---- Examen de días por encima del límite ----
 
 check.hosp.capacity <- function(hosp, icu, neto, t){
   par(mfrow=c(1,1))
   # ---- Ver si en algún momento se superó el número de camas ---- #
-  cap.convencional <- capacidad.asistencial.convencional$average_total
-  cap.uci <- capacidad.asistencial.uci$average_total
-  cap.uci.respirador <- capacidad.asistencial.uci.respirador$average_total
-  cap.uci.sin.respirador <- capacidad.asistencial.uci.sin.respirador$average_total
+  cap.convencional <- area.capacity.stats['mediana','Hospitalización convencional']
+  cap.uci <- sum(area.capacity.stats['mediana',c('U. Críticas CON respirador', 'U. Críticas SIN respirador')])
+  
   # Número de días que se sobrepasa
   sim.tot.hosp <- hosp+icu
   dias.sobrepasados.convencional <- sum(sim.tot.hosp>=cap.convencional)
@@ -646,19 +589,30 @@ check.hosp.capacity <- function(hosp, icu, neto, t){
   
   # Gráficas
   plot(NA, xlim=c(0,n.time), ylim=c(0,max(max(sim.tot.hosp)+20)), xlab="Días", ylab="Casos", main=t)
-  abline(h=cap.convencional, col='blue', lty=2)
-  abline(h=cap.uci, col='red', lty=2)  
-  abline(h=cap.uci.respirador, col='black', lty=2)  
-  abline(h=cap.uci.sin.respirador, col='orange', lty=2)  
+  
+  add.range <- function(capacity.stats, unidad, col){
+    mediana <- capacity.stats['mediana',unidad]
+    p10 <- capacity.stats['percentil10',unidad]
+    p90 <- capacity.stats['percentil90',unidad]
+    abline(h=p10, col='black', lty=2)
+    abline(h=p90, col='black', lty=2) 
+    abline(h=mediana, col='red', lty=1)
+    rect(0-50,p90,
+         n.time+50,p10,
+         col= col, lwd=0)    
+  }
+  add.range(area.capacity.stats,'Hospitalización convencional',rgb(0,1,0,alpha=0.1))
+  add.range(area.capacity.stats,'U. Críticas CON respirador',rgb(0,0,1,alpha=0.1))
+  add.range(area.capacity.stats,'U. Críticas SIN respirador',rgb(1,0,0,alpha=0.1))
   
   lines(hosp, type="l",lty=1, lwd=2, col='pink')
   lines(icu, type="l",lty=1, lwd=2, col='red')
   lines(sim.tot.hosp, type="l",lty=1, lwd=2, col='orange')
   lines(neto,lty=1, lwd=2, col='green')
   
-  legend("topright", legend = c("nHOS", "nICU",'nHOS+nICU','Cambio neto (in-out)','Capacidad convencional', 'Capacidad media UCI', 'Capacidad UCI (Resp)', 'Capacidad UCI (No resp)'),
-         col = c('pink','red','orange','green','blue','red','black','orange'), lty=c(1,1,1,1,2,2,2,2), pch = c(NA,NA,NA,NA,NA,NA,NA), bty = "n")
-  
+  # legend("topright", legend = c("nHOS", "nICU",'nHOS+nICU','Cambio neto (in-out)','Capacidad convencional', 'Capacidad media UCI', 'Capacidad UCI (Resp)', 'Capacidad UCI (No resp)'),
+  #        col = c('pink','red','orange','green','blue','red','black','orange'), lty=c(1,1,1,1,2,2,2,2), pch = c(NA,NA,NA,NA,NA,NA,NA), bty = "n")
+  # 
   title(sub=paste('Días sobrepasados en HOSP: ', dias.sobrepasados.convencional), adj=1, line=2, font=2,cex.sub = 0.75)
   title(sub=paste('Días sobrepasados en UCI: ', dias.sobrepasados.uci), adj=1, line=3, font=2,cex.sub = 0.75)
   # Por cuánto se sobrepasa

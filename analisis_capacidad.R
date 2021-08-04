@@ -1,3 +1,4 @@
+# Librerias
 library(Rlab)
 library(data.table)
 library(scales)
@@ -8,34 +9,48 @@ library(readr)
 library(glue)
 library(dplyr)
 
-#  Variables de datos
-area.sanitaria <- 'all' # si se pone 'all' se eligen todas
+#  ---- Variables de datos ----
+area.sanitaria <- 'Coruña - Cee' # si se pone 'all' se eligen todas
 areas.hospitales <- data.frame(read_csv("datos/areas_hospitales_correspondencia.csv"))
 capacidad <- data.frame(read_csv("datos/capacidadasistencial.csv", locale = locale(encoding = "ISO-8859-1"))) # capacidad asistencial
 names(capacidad) <- tolower(names(capacidad))
 
+# Para crear buenas tablas
+create.table <- function(df, capt){
+  DT::datatable(df, extensions = c('FixedColumns'),
+                options = list(scrollX = TRUE, paging=TRUE), 
+                caption=htmltools::tags$caption(
+                  style = 'caption-side: bottom; text-align: center; color: black;',
+                  htmltools::em(capt)
+                ))
+}
+
+# ---- Preprocesado de capacidad ----
 # Meter áreas sanitarias (este paso seguramente es temporal, en el futuro vendrá dentro de capacidad)
 capacidad <- merge(areas.hospitales, capacidad, by='hospital')
 
 # Eliminar columna id (no hace falta)
 capacidad$id <- NULL
 
-# Filtrar por el área sanitaria que se quiera
-filter.cases <- function(df,a){
+# ---- Filtrado de capacidad ----
+filter.cap <- function(df,a){
   # Filtra el dataframe de casos según área sanitaria
   # Si se pone 'all' se cogen todas las áreas
   if (a=='all'){
-    casos <- df
+    cap <- df
   } else {
-    casos <- subset(df, area==a)
+    cap <- subset(df, area==a)
   }
-  return(casos)
+  return(cap)
 }
-capacidad <- filter.cases(capacidad, 'all')
+
+# Filtrar por el área sanitaria que se quiera
+capacidad <- filter.cap(capacidad, area.sanitaria)
 
 # Filtrar por referencia
-# capacidad <- subset(capacidad, referencia==1)
+capacidad <- subset(capacidad, referencia==1)
 
+# ---- Calculos previos ----
 # Añadir total de ocupadas
 capacidad$total_ocupadas <- capacidad$ocupadas_covid19 + capacidad$ocupadas_no_covid19
 
@@ -45,10 +60,11 @@ hospitales <- sort(unique(capacidad$hospital))
 # Unidades
 unidades <- sort(unique(capacidad$unidad))
 
+
+# ---- Capacidad en cada hospital ----
 # Lista para guardar dataframes de cada hospital con la unidad y cuentas
 hospital.capacity.stats <- list()
 
-# Capacidad en cada hospital
 par(mfrow=c(2,2))
 for (h in hospitales){
   # Inicialización de dataframe de unidades*medidas para el hospital
@@ -84,17 +100,17 @@ for (h in hospitales){
     for (d in min.sobrepasado){
       rect(d-1,0-20,
            d+1,max(tot, na.rm=T)+20,
-           col= rgb(1,0,0,alpha=0.1), lwd=0)      
+           col= rgb(1,0,0,alpha=0.05), lwd=0)      
     }
     for (d in max.sobrepasado){
       rect(d-1,0-20,
            d+1,max(tot, na.rm=T)+20,
-           col= rgb(1,0,0,alpha=0.5), lwd=0)      
+           col= rgb(1,0,0,alpha=0.3), lwd=0)      
     }
     for (d in median.sobrepasado){
       rect(d-1,0-20,
            d+1,max(tot, na.rm=T)+20,
-           col= rgb(1,0,0,alpha=0.25), lwd=0)      
+           col= rgb(1,0,0,alpha=0.15), lwd=0)      
     }
     rect(fechas[1]-20,percentiles[['10%']],
          fechas[length(fechas)]+20,percentiles[['90%']],
@@ -105,7 +121,6 @@ for (h in hospitales){
     abline(h=mediana, col='darkorchid', lty=1)
     # abline(h=percentiles[['10%']], col='deeppink', lty=5)
     # abline(h=percentiles[['90%']], col='darkslateblue', lty=5)
-
 
     axis.Date(1, at=seq(min(fechas), max(fechas), length.out=10), format='%b %Y', las=2, cex.axis=0.8)    
 
@@ -118,36 +133,49 @@ for (h in hospitales){
 }
 par(mfrow=c(1,1))
 
-# Resultados de cada hospital por unidad
+# ---- Resultados de cada hospital por unidad ----
 hospital.capacity.stats
 
-
-# Juntar datos de hospitales para encontrar los stats del conjunto
+# ---- Juntar datos de hospitales para encontrar stats del conjunto ----
 merge.hospital.data <- function(hosp.data, parameter){
+  # Esta función coge una lista de dataframes, cada uno de un hospital, en donde
+  # cada fila es una característica de la capacidad (ej: mediana) y cada columna la 
+  # unidad del hospital. Se hace la suma de esta característica a lo largo de los hospitales
   res <- bind_rows(lapply(hosp.data, function(df){df[parameter,]}))
   res <- apply(res,2,sum)
   res <- as.data.frame(t(res))
   rownames(res) <- parameter
   return(res)
 }
+# Se calcula para cada característica, su suma a lo largo de los hospitales
 df_median <- merge.hospital.data(hospital.capacity.stats, 'mediana')
 df_p10 <- merge.hospital.data(hospital.capacity.stats, 'percentil10')
 df_p90 <- merge.hospital.data(hospital.capacity.stats, 'percentil90')
 
+# Se juntan en un df, resumiendo la capacidad del área seleccionada
 area.capacity.stats <- rbind(df_median, df_p10, df_p90)
+create.table(area.capacity.stats, capt='Capacidad del conjunto seleccionado')
 
-
+# ---- Mostrar capacidad del área en cada unidad ----
 plot.capacity.intervals <- function(capacity.stats, unidad){
-  plot(NA, xlim=c(0,100), ylim=c(0,max(area.capacity.stats[,unidad])+10))
-  abline(h=area.capacity.stats['mediana',unidad], col='blue', lty=1)
-  abline(h=area.capacity.stats['percentil10',unidad], col='red', lty=2)
-  abline(h=area.capacity.stats['percentil90',unidad], col='red', lty=2) 
-  rect(0-50,area.capacity.stats['percentil90',unidad],
-       100+50,area.capacity.stats['percentil10',unidad],
+  mediana <- capacity.stats['mediana',unidad]
+  p10 <- capacity.stats['percentil10',unidad]
+  p90 <- capacity.stats['percentil90',unidad]
+  
+  plot(NA, xlim=c(0,100), ylim=c(0,max(capacity.stats[,unidad])+10), main=unidad, ylab='Camas')
+  abline(h=p10, col='red', lty=2)
+  abline(h=p90, col='red', lty=2) 
+  abline(h=mediana, col='blue', lty=1)
+  rect(0-50,p90,
+       100+50,p10,
        col= rgb(0,0,1.0,alpha=0.1), lwd=0)
+  title(sub=paste('Mediana:', mediana), adj=1, line=2, font=2,cex.sub = 0.75)
+  title(sub=paste('Percentil 10:', p10), adj=1, line=3, font=2,cex.sub = 0.75)
+  title(sub=paste('Percentil 90:', p90), adj=1, line=4, font=2,cex.sub = 0.75)
 }
 
+par(mfrow=c(1,3))
 plot.capacity.intervals(area.capacity.stats,'Hospitalización convencional')
 plot.capacity.intervals(area.capacity.stats,'U. Críticas CON respirador')
 plot.capacity.intervals(area.capacity.stats,'U. Críticas SIN respirador')
-
+par(mfrow=c(1,1))

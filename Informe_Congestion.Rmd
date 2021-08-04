@@ -11,7 +11,7 @@ output:
 ```{=html}
 <style type="text/css">
 .main-container {
-  max-width: 1200px;
+  max-width: 1500px;
   margin-left: auto;
   margin-right: auto;
 }
@@ -24,7 +24,7 @@ knitr::opts_chunk$set(
     fig.height  = 8,       # the height for plots created by code chunk
     fig.align   = 'center', # how to align graphics in the final doc. 
     warning     = FALSE,
-    cache       = TRUE
+    cache       = FALSE
 )
 ```
 
@@ -45,6 +45,9 @@ library(scales)
 library(foreach)
 library(doParallel)
 library(DT)
+library(readr)
+library(dplyr)
+library(glue)
 ```
 
 # Variables
@@ -53,7 +56,7 @@ Aquí se eligen variables importantes para la simulación, como el número de hi
 
 El número de hilos (num.cores) elegidos depende del ordenador donde se vaya a ejecutar y de su RAM. Cuantos más se hilos se permitan más RAM ocupará la simulación. En principio 16 GB de RAM deberían ser suficientes para 10 hilos, mientras que con 6 hilos ocupa entre 5 y 8 GB.
 
-```{r}
+```{r message=FALSE}
 # Variables de simulación
 num.cores <- 6
 registerDoParallel(num.cores) 
@@ -66,20 +69,30 @@ par.m.size <- m/10 # cuántas simulaciones por núcleo
 par.m.loops <- par.m.size/10 # cuántas tandas
 
 #  Variables de datos
-area.sanitaria <- 'all' # si se pone 'all' se eligen todas
-casos.org <- data.frame(fread('datos/20210722-PabloAja.csv')) # casos base
-capacidad <- data.frame(fread("datos/solicitud_BD.2.csv")) # capacidad asistencial
+area.sanitaria <- 'Pontevedra - O Salnés' # si se pone 'all' se eligen todas
+areas.hospitales <- data.frame(read_csv("datos/areas_hospitales_correspondencia.csv")) # correspondencia entre hospital y área
+casos.org <- data.frame(read_csv("datos/sivies_agreg_area_sanitaria.csv")) # casos base
+capacidad <- data.frame(read_csv("datos/capacidadasistencial.csv", locale = locale(encoding = "ISO-8859-1"))) # capacidad asistencial
 names(capacidad) <- tolower(names(capacidad))
 
+
 # Para crear buenas tablas
-create.table <- function(df){
+create.table <- function(df, capt){
   DT::datatable(df, extensions = c('FixedColumns'),
-          options = list(scrollX = TRUE, paging=TRUE))
+                options = list(scrollX = TRUE, paging=TRUE), 
+                caption=htmltools::tags$caption(
+                  style = 'caption-side: bottom; text-align: center; color: black;',
+                  htmltools::em(capt)
+                ))
 }
 ```
 
 ```{r, include=FALSE, cache=FALSE}
 knitr::read_chunk('sim_datos_agregados.R')
+```
+
+```{r, include=FALSE, cache=FALSE}
+knitr::read_chunk('analisis_capacidad.R')
 ```
 
 # Proporción de edades y sexos
@@ -93,7 +106,31 @@ En este apartado se usa información agregada de SIVIES para obtener las probabi
 
 A partir de la base de datos de CMC se obtienen el número de camas por hospital, tipo de hospital, área sanitaria (en el futuro), unidad (ej: UCI con ventiladores), camas totales, camas UCI y camas convencionales. Estos datos se filtran según la variable area.sanitaria elegida al principio, y servirán para ver el número de días que un área sanitaria se ha visto sobrepasada.
 
-```{r, Capacidad asistencial, echo=TRUE}
+## Preprocesado de datos de CMC
+```{r, Preprocesado de capacidad, echo=TRUE}
+```
+
+## Filtrado
+```{r, Filtrado de capacidad, echo=TRUE}
+```
+
+## Cálculos previos
+```{r, Calculos previos, echo=TRUE}
+```
+
+## Capacidad en cada hospital
+```{r, Capacidad en cada hospital, echo=TRUE}
+```
+
+## Resultados de cada hospital por unidad
+```{r, Resultados de cada hospital por unidad, echo=TRUE}
+```
+
+## Resultados del conjunto de hospitales
+```{r, Juntar datos de hospitales para encontrar stats del conjunto, echo=TRUE}
+```
+
+```{r, Mostrar capacidad del área en cada unidad, echo=TRUE, fig.height  = 4}
 ```
 
 # Probabilidades en simulación
@@ -131,41 +168,35 @@ Una vez se han completado los pasos iniciales, se simulan las transiciones de es
 
 Esto se repite para cada paciente hospitalizado, calculando el estado inicial. Una vez hecho esto, se simulan el resto de estados para los pacientes que siguen en 'HOS' o 'UCI' (ni se han muerto ni se les ha dado el alta). Se simula hasta que ningún paciente quede en el hospital o en UCI.
 
-Al final de todo este proceso se calcula el número de personas en UCI, hospitalizadas, muertas o dadas de alta por día. Estas son las matrices resultado. Como cada hilo produce una lista de matrices, es necesario juntarlas una a una mediante la función 'get.sim.results'.
-
-<details>
-
-<summary style="background-color: #f4f6f6 ">
-
-<a>Mostrar código</a>
-
-</summary>
+&nbsp;
+<details><summary style="background-color: #f4f6f6 "><a>Mostrar código de simulación</a></summary>
 
 ```{r Simulación paralelizada condicional, echo=TRUE}
 ```
 
-```{r, Gráficas de resultados condicionales, echo=TRUE}
-```
-
 </details>
+&nbsp;
+
+Al final de todo este proceso se calcula el número de personas en UCI, hospitalizadas, muertas o dadas de alta por día. Estas son las matrices resultado. Como cada hilo produce una lista de matrices, es necesario juntarlas una a una mediante la función 'get.sim.results'.  
+
+
+```{r, Resultados condicionales, echo=TRUE}
+```
 
 ## Simulación paralelizada no condicional
 
-<details>
-
-<summary style="background-color: #f4f6f6 ">
-
-<a>Mostrar código</a>
-
-</summary>
+&nbsp;
+<details><summary style="background-color: #f4f6f6 "><a>Mostrar código de simulación</a></summary>
 
 ```{r, Simulación paralelizada no condicional, echo=TRUE}
 ```
 
-```{r, Gráficas de resultados no condicionales, echo=TRUE}
+</details>
+&nbsp;
+
+```{r, Resultados no condicionales, echo=TRUE}
 ```
 
-</details>
 
 # Examen de días por encima del límite
 
