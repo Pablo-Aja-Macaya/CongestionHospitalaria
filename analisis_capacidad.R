@@ -142,8 +142,8 @@ plot.capacity.intervals <- function(capacity.stats, unidad){
   abline(h=area.capacity.stats['mediana',unidad], col='blue', lty=1)
   abline(h=area.capacity.stats['percentil10',unidad], col='red', lty=2)
   abline(h=area.capacity.stats['percentil90',unidad], col='red', lty=2) 
-  rect(0,area.capacity.stats['percentil90',unidad],
-       100,area.capacity.stats['percentil10',unidad],
+  rect(0-50,area.capacity.stats['percentil90',unidad],
+       100+50,area.capacity.stats['percentil10',unidad],
        col= rgb(0,0,1.0,alpha=0.1), lwd=0)
 }
 
