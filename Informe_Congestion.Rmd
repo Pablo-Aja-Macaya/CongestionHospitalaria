@@ -19,7 +19,6 @@ output:
 ```
 ```{r global.options, include = FALSE}
 knitr::opts_chunk$set(
-    cache       = TRUE,     # if TRUE knitr will cache the results to reuse in future knits
     fig.width   = 12,       # the width for plots created by code chunk
     fig.height  = 8,       # the height for plots created by code chunk
     fig.align   = 'center', # how to align graphics in the final doc. 
