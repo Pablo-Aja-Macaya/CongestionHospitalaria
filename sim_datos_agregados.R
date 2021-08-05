@@ -194,74 +194,81 @@ list(prob.ICU=prob.ICU, prob.HW=prob.HW, prob.HW.death=prob.HW.death, prob.HW.IC
 set.seed(123)
 
 res <- foreach (par.m=1:par.m.loops, .errorhandling="pass") %dopar% {
-  
+  # Se inicializan matrices vacías necesarias para la simulación
+  # Dependiendo de cada una pueden tener dos dimensiones (simulacion*individuo)
+  # o tres (simulacion*individuo*dia)
   age <- gender <- inf.time <- prob.rc <- final.state <- matrix(rep(NA, length.out=par.m.size*n.ind), nrow = par.m.size, ncol = n.ind) 
+  n.HOS <- n.ICU <- n.Dead <- n.Discharge <- n.H.Dead <- n.ICU.Dead  <- matrix(rep(NA, length.out= par.m.size*n.time), nrow = par.m.size, ncol = n.time) 
+  
+  # Inicialización de matriz state, la cual contendrá, para cada simulación, el estado
+  # de cada individuo por día
   state <- rep(NA, par.m.size*n.ind*n.time)
   dim(state) <- c(par.m.size, n.ind, n.time)
-
-  n.HOS <- n.ICU <- n.Dead <- n.Discharge <- n.H.Dead <- n.ICU.Dead  <- matrix(rep(NA, length.out= par.m.size*n.time), nrow = par.m.size, ncol = n.time) 
-  for (j in 1:par.m.size) {
-    # cat("j=",j,"\n")
-    # if(j%%10==0) cat("j=",j,"\n")
+  
+  for (j in 1:par.m.size) { # j = simulación
+    #-------------------------------------------------------------
+    # -- Definición del sexo de cada individuo usando Bernoulli --
+    #-------------------------------------------------------------
+    # Mujeres serán 1 y hombres 0
+    bern.dist <- rbern(n.ind, prob=prob.w)
+    gender[j,] <- bern.dist
     
-    # Definition of age, gender and infection times
-    # of patients in sample j
-    
-    tmp <- rbern(n.ind, prob=prob.w)
-    gender[j,] <- tmp
-    
-    # Age and hospital admission real data distribution
+    #-------------------------------------------------
+    # -- Edad y posibilidad de ingresar en hospital --
+    #-------------------------------------------------
     # Con la distribución de edades reales se selecciona una etapa (ej: 54.5) y su 
     # probabilidad de hospitalización (ej: 0.28) para cada individuo i en una simulación j
     # Mujeres (1)
-    condicion <- which(tmp==1)
+    condicion <- which(bern.dist==1)
     n.interval <- sample(1:length(woman.age.prob),size=length(condicion),prob=woman.age.prob, replace=T)
     age[j,][condicion] <- women.mean.age.interval[n.interval]
     prob.rc[j,][condicion] <- prob.rc.woman[n.interval]
     
     # Hombres (0)
-    condicion <- which(tmp==0)
+    condicion <- which(bern.dist==0)
     n.interval <- sample(1:length(man.age.prob),size=length(condicion),prob=man.age.prob, replace=T)
     age[j,][condicion] <- men.mean.age.interval[n.interval]
     prob.rc[j,][condicion] <- prob.rc.man[n.interval]
     
-    # Día en el que se infecta
+    #-----------------------------------------------------
+    # -- Día en el que se infecta (distribución normal) --
+    # ----------------------------------------------------
     inf.time[j,] <- rnorm(n=n.ind, mean=60, sd=10)
     
-    #----------------------------------------------------
-    # We define the times with infection as the state "I"
-    #----------------------------------------------------
+    # Definición del día de infección en state
+    # Los días previos a la infección se guardan como "0", y el día de infección como "I"
     for (i in 1:n.ind){
       # Ceiling redondea hacia arriba (1.1->2)
-      # Los días previos al de infección son 0 y el de infección es I
       state[j, i, 1:(ceiling(inf.time[j,i])-1)] = 0
       state[j, i, ceiling(inf.time[j,i])] = "I"
     }
-
-    #----------------------------------------------------
-    # We simulate the times of the patients in hospital (i in in.H)
-    #----------------------------------------------------
+    
+    #--------------------------------------------------------
+    # -- Se definen individuos que ingresan en el hospital --
+    #--------------------------------------------------------
     u <- runif(n.ind) # esto genera random deviates of the uniform distribution 
     ind.H <- which(u<=prob.rc[j,]) # qué individuos tienen la valor alatorio u <= probabilidad de ser hospitalizados
     
-    # Para cada individuo seleccionado (que tiene la enfermedad)
+    # -- Para cada individuo seleccionado (que tiene la enfermedad y es hospitalizado) --
     for (i in ind.H){
-      # Time since infection until hospital admission
+      # -- Tiempo desde infección hasta el día de hospitalización --
+      # Cada día en state desde el día de infección hasta el día de hospitalización se define como "I"
       t.inf.until.hosp <- rnorm(n=1, mean=12-0.05*age[j,i], sd=1)
       state[j,i,(ceiling(inf.time[j,i])+1):ceiling((inf.time[j,i] + t.inf.until.hosp-1))] = "I"
       
-      # The parameters of the Weibulls are computed only once
-      scale.ICU.death <- 15.5 * ( (100 - abs(age[j,i]- 60) - 10*gender[j,i]) / 62)    # New parameters
-      scale.ICU.HW <- 16.3 * ( (100 - abs(age[j,i]- 60) - 10*gender[j,i])/62)       # New parameters
-      scale.HW.disc <- 8.4 * ((60 + age[j,i]-10*gender[j,i])/100)     # New parameters
+      # -- Parámetros Weibull según edad y sexo --
+      scale.ICU.death <- 15.5 * ( (100 - abs(age[j,i]- 60) - 10*gender[j,i]) / 62)
+      scale.ICU.HW <- 16.3 * ( (100 - abs(age[j,i]- 60) - 10*gender[j,i])/62)
+      scale.HW.disc <- 8.4 * ((60 + age[j,i]-10*gender[j,i])/100) 
       scale.HW.ICU <- 4.2
       
-      #--------------------------------
-      # The first states are simulated
-      #--------------------------------
+      #-------------------------------------------------
+      # -- Simulación del primer estado del individuo --
+      #-------------------------------------------------
       v1 <- runif(1) # probabilidad aleatoria de que empiece en HW (v1<=prob.HW) o en ICU (v1>=prob.HW)
-      #---------------------------------------------
-      if (v1 <= prob.HW) {# Patient in hospital ward
+      
+      if (v1 <= prob.HW) {
+        # Paciente entra en hospital ward (HW)
         v2 <- runif(1)
         if (v2 <= prob.HW.death) {# Patient dies in HW
           time.HW.death <- rexp(1, 0.1)# Of those admitted in hospital ward, the time to death 
@@ -278,8 +285,7 @@ res <- foreach (par.m=1:par.m.loops, .errorhandling="pass") %dopar% {
           state[j,i,ceiling(inf.time[j,i] + t.inf.until.hosp + time.HW.disc)] = "H.Discharge"
           final.state[j,i] = "Discharge"}
       } else {
-        #---------------------------------------------
-        # Patient in ICU
+        # Paciente entra en UCI
         v3 <- runif(1)
         if (v3 <= prob.ICU.death) {# Patient dies in ICU
           time.ICU.death <- rweibull(1, shape=1.4, scale=scale.ICU.death)# Time from admission in ICU to death
@@ -292,24 +298,24 @@ res <- foreach (par.m=1:par.m.loops, .errorhandling="pass") %dopar% {
           final.state[j,i] = "HOS"
         }}
       
-      #--------------------------------
-      # The following states are simulated
-      # for those in HOS or ICU
-      #--------------------------------
+      #-------------------------------------------------------------------------------
+      # -- Simulación del resto de estados para pacientes que queden en el hospital --
+      #-------------------------------------------------------------------------------
+      # Los pacientes que llegan a este punto no han muerto ni han salido del hospital
+      # Son los que su estado final todavía está por decidir
+      # Se repite el bucle while hasta que los individuos mueran, salgan del hospital o se acabe la simulación
       while((final.state[j,i]=="HOS") | (final.state[j,i]=="ICU")){
-        # La matriz state[j,i,] muestra la evolución del paciente desde "0" (sano), a I, H, ICU, H.Discharge etc.
-        # También pueden tener NAs (time without state) en el que todavía no sabemos qué le pasó,
-        # Sabemos que está en HOS o ICU pero ahora se simula lo que le pasa
-        i.final <- min(which(is.na(state[j,i,]))) # Lowest time without state
+        # Calcular el índice del siguiente día, en el que no se sabe el estado (es NA)
+        i.final <- min(which(is.na(state[j,i,])))
+        
+        # Comprobar si se sobrepasa del tiempo de simulación
         if (is.infinite(i.final)){
-          # Se sobrepasa del tiempo de simulación
           break
         }
         
-        v1 <- runif(1)
-        #---------------------------------------------
-        # Ahora se simula
-        if(final.state[j,i]=="HOS"){# Patient in hospital ward
+        # -- Simulación --
+        if(final.state[j,i]=="HOS"){
+          # Si el estado final actual es hospital
           v2 <- runif(1)
           if (v2 <= prob.HW.death) {# Patient dies in HW
             time.HW.death <- rexp(1, 0.1)# Of those admitted in hospital ward, the time to death 
@@ -326,8 +332,7 @@ res <- foreach (par.m=1:par.m.loops, .errorhandling="pass") %dopar% {
             state[j,i,pmin(n.time, ceiling(i.final+time.HW.disc))] = "H.Discharge"
             final.state[j,i] = "Discharge"}
         } else {
-          #---------------------------------------------
-          # Patient in ICU
+          # Si el estado final actual es UCI
           v3 <- runif(1)
           if (v3 <= prob.ICU.death) {# Patient dies in ICU
             time.ICU.death <- rweibull(1, shape=1.4, scale=scale.ICU.death)# Time from admission in ICU to death
@@ -342,10 +347,9 @@ res <- foreach (par.m=1:par.m.loops, .errorhandling="pass") %dopar% {
       } # end while
     } # end i in n.ind
     
-    #=================================================================
-    # Number of patients in each state (HOS, ICU, Dead, Discharge)
-    #=================================================================
-    
+    #---------------------------------------------------------------------------------
+    # Almacenar número de pacientes por simulación en cada estado por día (HOS, ICU, Dead, Discharge)
+    #---------------------------------------------------------------------------------
     for (k in 1:n.time){
       n.HOS[j,k] <- length(which(state[j, ,k]=="H"))
       n.ICU[j,k] <- length(which(state[j, ,k]=="ICU"))
@@ -363,7 +367,8 @@ stopImplicitCluster()
 
 
 # ----- Resultados condicionales ---- 
-# Ahora se juntan estos resultados
+# El sistema produce resultados por hilo y es necesario juntarlos
+# Se obtienen matrices de dimensiones simulaciones*pacientes*dias
 get.sim.results <- function(res, name){
   return(do.call(rbind, lapply(res, function(x){x[[name]]})))
 }
@@ -374,7 +379,7 @@ n.Discharge <- get.sim.results(res, 'n.Discharge')
 n.ICU.Dead <- get.sim.results(res, 'n.ICU.Dead')
 n.Dead <- get.sim.results(res, 'n.Dead')
 
-# Se calcula el número de individuos por día en cada categoría
+# Se calcula el número de individuos por día en cada categoría (pacientes*dias)
 nHOS <- nICU <- nDead <- nDischarge <- nH.Dead <- nICU.Dead  <- rep(0, length.out= n.time) 
 for (k in 1:n.time){
   nHOS[k] <- sum(n.HOS[,k], na.rm=T)/m
@@ -387,9 +392,7 @@ for (k in 1:n.time){
 
 
 # ---- Simulación paralelizada no condicional ----
-
-## ATENCION: en la no condicional falta adaptar la vectorización y poner los pmin
-# Weibull 
+# Cálculo previo de Weibull 
 scale.ICU.death <- 15.5 
 scale.ICU.HW <- 16.3 
 scale.HW.disc <- 8.4
@@ -399,61 +402,67 @@ scale.HW.ICU <- 4.2
 # Al final se tiene una lista de longitud=par.m.loops, cada una con una lista de resultados
 set.seed(123)
 res <- foreach (par.m=1:par.m.loops, .errorhandling="pas") %dopar% {
+  # Se inicializan matrices vacías necesarias para la simulación
+  # Dependiendo de cada una pueden tener dos dimensiones (simulacion*individuo)
+  # o tres (simulacion*individuo*dia)
   age.inc <- gender.inc <- inf.time <- prob.rc <- final.state.inc <- matrix(rep(NA, length.out=par.m.size*n.ind), nrow = par.m.size, ncol = n.ind) 
   n.HOS.inc <- n.ICU.inc <- n.Dead.inc <- n.Discharge.inc <- n.H.Dead.inc <- n.ICU.inc.Dead.inc  <- matrix(rep(NA, length.out= par.m.size*n.time), nrow = par.m.size, ncol = n.time)
+  
+  # Inicialización de matriz state, la cual contendrá, para cada simulación, el estado
+  # de cada individuo por día
   state.inc <- rep(NA, par.m.size*n.ind*n.time)
   dim(state.inc) <- c(par.m.size, n.ind, n.time)
   
-  n.HOS.inc <- n.ICU.inc <- n.Dead.inc <- n.Discharge.inc <- n.H.Dead.inc <- n.ICU.inc.Dead.inc  <- matrix(rep(NA, length.out= par.m.size*n.time), nrow = par.m.size, ncol = n.time) 
   for (j in 1:par.m.size){
-    # cat("j=",j,"\n")
-    # if(j%%10==0) cat("j=",j,"\n")
+    #-------------------------------------------------------------
+    # -- Definición del sexo de cada individuo usando Bernoulli --
+    #-------------------------------------------------------------
+    # Mujeres serán 1 y hombres 0
+    gender.inc[j,] <- rbern(n.ind, prob=prob.w) # Gender from real data distribution
     
-    # Definition of age, gender and infection times
-    # of patients in sample j
-    
-    gender.inc[j,] <- rbern(n.ind, prob=prob.w)    # Gender from real data distribution
-    
-    # Age and hospital admission real data distribution
+    #-------------------------------------------------
+    # -- Edad y posibilidad de ingresar en hospital --
+    #-------------------------------------------------
     for (i in 1:n.ind){
-      
-      if (gender.inc[j,i] == 1) {
+      if (gender.inc[j,i] == 1) { # mujeres
         n.interval <- sample(1:length(woman.age.prob),size=1,prob=woman.age.prob)
         age.inc[j,i] <- women.mean.age.interval[n.interval]
-      } else {
+      } else { # hombres
         n.interval <- sample(1:length(man.age.prob),size=1,prob=man.age.prob)
         age.inc[j,i] <- men.mean.age.interval[n.interval]
       }
       
     }  
     prob.rc[j,] <- prob.rc.real
+    
+    #-----------------------------------------------------
+    # -- Día en el que se infecta (distribución normal) --
+    # ----------------------------------------------------
     inf.time[j,] <-rnorm(n=n.ind, mean=60, sd=10)
     
-    #----------------------------------------------------
-    # We define the times with infection as the state.inc "I"
-    #----------------------------------------------------
+    # Definición del día de infección en state
+    # Los días previos a la infección se guardan como "0", y el día de infección como "I"
     for (i in 1:n.ind){
       state.inc[j, i, 1:(ceiling(inf.time[j,i])-1)] = 0
       state.inc[j, i, ceiling(inf.time[j,i])] = "I"
     }
-    #----------------------------------------------------
-    # We simulate the times of the patients in hospital (i in in.H)
-    #----------------------------------------------------
     
+    #--------------------------------------------------------
+    # -- Se definen individuos que ingresan en el hospital --
+    #--------------------------------------------------------
     u <- runif(n.ind)
     ind.H <- which(u<=prob.rc[j,])
     
+    # -- Para cada individuo seleccionado (que tiene la enfermedad y es hospitalizado) --
     for (i in ind.H){
       # Time since infection until hospital admission
       t.inf.until.hosp <- rnorm(n=1, mean=12-0.05*age.inc[j,i], sd=1)
       state.inc[j,i,(ceiling(inf.time[j,i])+1):ceiling((inf.time[j,i] + t.inf.until.hosp-1))] = "I"
       
-      #--------------------------------
-      # The first state.incs are simulated
-      #--------------------------------
-      
+      #-------------------------------------------------
+      # -- Simulación del primer estado del individuo --
+      #-------------------------------------------------
       v1 <- runif(1)
-      #---------------------------------------------
       if (v1 <= prob.HW) {# Patient in hospital ward
         v2 <- runif(1)
         if (v2 <= prob.HW.death) {# Patient dies in HW
@@ -485,17 +494,24 @@ res <- foreach (par.m=1:par.m.loops, .errorhandling="pas") %dopar% {
           final.state.inc[j,i] = "HOS"
         }}
       
-      #--------------------------------
-      # The following state.incs are simulated
-      # for those in HOS or ICU
-      #--------------------------------
+      #-------------------------------------------------------------------------------
+      # -- Simulación del resto de estados para pacientes que queden en el hospital --
+      #-------------------------------------------------------------------------------
+      # Los pacientes que llegan a este punto no han muerto ni han salido del hospital
+      # Son los que su estado final todavía está por decidir
+      # Se repite el bucle while hasta que los individuos mueran, salgan del hospital o se acabe la simulación
       while((final.state.inc[j,i]=="HOS") | (final.state.inc[j,i]=="ICU")){
+        # Calcular el índice del siguiente día, en el que no se sabe el estado (es NA)
+        i.final <- min(which(is.na(state.inc[j,i,])))
+
+        # Comprobar si se sobrepasa del tiempo de simulación
+        if (is.infinite(i.final)){
+          break
+        }
         
-        i.final <- min(which(is.na(state.inc[j,i,]))) # Lowest time without state.inc
-        
-        v1 <- runif(1)
-        #---------------------------------------------
-        if(final.state.inc[j,i]=="HOS"){# Patient in hospital ward
+        # -- Simulación --
+        if(final.state.inc[j,i]=="HOS"){
+          # Si el estado final actual es HOS
           v2 <- runif(1)
           if (v2 <= prob.HW.death) {# Patient dies in HW
             time.HW.death <- rexp(1, 0.1)# Of those admitted in hospital ward, the time to death 
@@ -512,8 +528,7 @@ res <- foreach (par.m=1:par.m.loops, .errorhandling="pas") %dopar% {
             state.inc[j,i,pmin(n.time,ceiling(i.final+time.HW.disc))] = "H.Discharge"
             final.state.inc[j,i] = "Discharge"}
         } else {
-          #---------------------------------------------
-          # Patient in ICU
+          # Si el estado final actual es UCI
           v3 <- runif(1)
           if (v3 <= prob.ICU.death) {# Patient dies in ICU
             time.ICU.death <- rweibull(1, shape=1.4, scale=scale.ICU.death)# Time from admission in ICU to death
@@ -529,10 +544,9 @@ res <- foreach (par.m=1:par.m.loops, .errorhandling="pas") %dopar% {
       } # end while
     } # end i in n.ind
     
-    #=================================================================
-    # Number of patients in each state.inc (HOS, ICU, Dead, Discharge)
-    #=================================================================
-    
+    #---------------------------------------------------------------------------------
+    # Almacenar número de pacientes por simulación en cada estado por día (HOS, ICU, Dead, Discharge)
+    #---------------------------------------------------------------------------------
     for (k in 1:n.time){
       n.HOS.inc[j,k] <- length(which(state.inc[j, ,k]=="H"))
       n.ICU.inc[j,k] <- length(which(state.inc[j, ,k]=="ICU"))
@@ -549,7 +563,8 @@ stopImplicitCluster()
 
 
 # ---- Resultados no condicionales ----
-# Ahora se juntan estos resultados
+# El sistema produce resultados por hilo y es necesario juntarlos
+# Se obtienen matrices de dimensiones simulaciones*pacientes*dias
 get.sim.results <- function(res, name){
   return(do.call(rbind, lapply(res, function(x){x[[name]]})))
 }
@@ -561,7 +576,7 @@ n.Discharge.inc <- get.sim.results(res, 'n.Discharge.inc')
 n.H.Dead.inc <- get.sim.results(res, 'n.H.Dead.inc')
 n.ICU.inc.Dead.inc <- get.sim.results(res, 'n.ICU.inc.Dead.inc')
 
-# Se calcula el número de individuos por día en cada categoría
+# Se calcula el número de individuos por día en cada categoría (pacientes*dias)
 nHOS.inc <- nICU.inc <- nDead.inc <- nDischarge.inc <- nH.Dead.inc <- nICU.inc.Dead  <- rep(0, length.out= n.time) 
 for (k in 1:n.time){
   nHOS.inc[k] <- sum(n.HOS.inc[,k], na.rm=T)/m
@@ -574,7 +589,6 @@ for (k in 1:n.time){
 
 
 # ---- Examen de días por encima del límite ----
-
 check.hosp.capacity <- function(hosp, icu, neto, t){
   par(mfrow=c(1,1))
   # ---- Ver si en algún momento se superó el número de camas ---- #
@@ -617,9 +631,9 @@ check.hosp.capacity <- function(hosp, icu, neto, t){
   # Por cuánto se sobrepasa
   # plot(sim.tot.hosp[sim.tot.hosp>=cap]-cap, ylab='Pacientes sin cama', xlab='Días')
 }
+
 cambio.neto <- nHOS+nICU-(nDischarge+nDead+nH.Dead+nICU.Dead)
 check.hosp.capacity(nHOS, nICU, cambio.neto, t='Condicional')
-
 
 cambio.neto <- nHOS.inc+nICU.inc-(nDischarge.inc+nDead.inc+nH.Dead.inc+nICU.inc.Dead)
 check.hosp.capacity(nHOS.inc, nICU.inc, cambio.neto, t='No condicional')

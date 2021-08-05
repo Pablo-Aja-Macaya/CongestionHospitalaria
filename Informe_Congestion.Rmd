@@ -69,7 +69,7 @@ par.m.size <- m/10 # cuántas simulaciones por núcleo
 par.m.loops <- par.m.size/10 # cuántas tandas
 
 #  Variables de datos
-area.sanitaria <- 'all' # si se pone 'all' se eligen todas
+area.sanitaria <- 'Coruña - Cee' # c('Ourense - Verín - O Barco de Valdeorras','Coruña - Cee') # si se pone 'all' se eligen todas
 areas.hospitales <- data.frame(read_csv("datos/areas_hospitales_correspondencia.csv")) # correspondencia entre hospital y área
 casos.org <- data.frame(read_csv("datos/sivies_agreg_area_sanitaria.csv")) # casos base
 capacidad <- data.frame(read_csv("datos/capacidadasistencial.csv", locale = locale(encoding = "ISO-8859-1"))) # capacidad asistencial
