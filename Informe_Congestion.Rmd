@@ -69,7 +69,7 @@ par.m.size <- m/10 # cuántas simulaciones por núcleo
 par.m.loops <- par.m.size/10 # cuántas tandas
 
 #  Variables de datos
-area.sanitaria <- 'Pontevedra - O Salnés' # si se pone 'all' se eligen todas
+area.sanitaria <- 'all' # si se pone 'all' se eligen todas
 areas.hospitales <- data.frame(read_csv("datos/areas_hospitales_correspondencia.csv")) # correspondencia entre hospital y área
 casos.org <- data.frame(read_csv("datos/sivies_agreg_area_sanitaria.csv")) # casos base
 capacidad <- data.frame(read_csv("datos/capacidadasistencial.csv", locale = locale(encoding = "ISO-8859-1"))) # capacidad asistencial
@@ -104,31 +104,53 @@ En este apartado se usa información agregada de SIVIES para obtener las probabi
 
 # Capacidad asistencial
 
-A partir de la base de datos de CMC se obtienen el número de camas por hospital, tipo de hospital, área sanitaria (en el futuro), unidad (ej: UCI con ventiladores), camas totales, camas UCI y camas convencionales. Estos datos se filtran según la variable area.sanitaria elegida al principio, y servirán para ver el número de días que un área sanitaria se ha visto sobrepasada.
+A partir de la base de datos de CMC se obtienen el número de camas por hospital, tipo de hospital, unidad (ej: UCI con ventiladores), camas totales, camas UCI y camas convencionales. Estos datos se filtran según la variable area.sanitaria elegida al principio, y servirán para ver el número de días que un área sanitaria se ha visto sobrepasada en la simulación.
 
 ## Preprocesado de datos de CMC
+
+Se hace un merge del dataframe de CMC con una hoja de cálculo que contiene en cada fila a qué área pertenece un hospital. Además, se añade una columna "referencia" que indica si un hospital es hospital de referencia de su zona.
+
 ```{r, Preprocesado de capacidad, echo=TRUE}
 ```
 
 ## Filtrado
+
+Se filtran los datos de capacidad, seleccionando el area sanitaria eligida, y filtrando por si se quieren hospitales de referencia o no.
+
 ```{r, Filtrado de capacidad, echo=TRUE}
 ```
 
 ## Cálculos previos
+
+En este paso se añade el cálculo del total de camas ocupadas al dataframe.
+
 ```{r, Calculos previos, echo=TRUE}
 ```
 
 ## Capacidad en cada hospital
+
+Se obtienen los hospitales y unidades presentes en los datos filtrados, ordenados alfabéticamente, y se realiza un bucle para cada hospital. En este bucle se calculan, unidad a unidad, datos como la mediana, el percentil 90 o el percentil 10 del número de camas totales a lo largo de la pandemia. El resultado para cada unidad es una gráfica con un histograma y otra con la evolución de las camas a lo largo de la pandemia. La segunda gráfica puede contener columnas verticales rojizas, que indicarán si en algún momento el número de ingresados totales sobrepasó alguna de las medidas (mediana o percentiles). Cuanto más rojizas mayor habrá sido el nivel (sobrepasar el percentil 10 < sobrepasar la mediana < sobrepsar el percentil 90).
+
+Por último, se obtiene en la lista "hospital.capacity.stats" las estadísticas resumidas para cada hospital.
+
 ```{r, Capacidad en cada hospital, echo=TRUE}
 ```
 
 ## Resultados de cada hospital por unidad
+
+Esta lista resume las características del número de camas a lo largo de la pandemia por hospital y unidad.
+
 ```{r, Resultados de cada hospital por unidad, echo=TRUE}
 ```
 
 ## Resultados del conjunto de hospitales
+
+Para dar una visión general del conjunto de hospitales seleccionado, se resumen sus datos en lo que sería el sumatorio de cada característica por unidad y hospital. Es decir, el sumatorio de las medianas para hospitalización convencional de todos los hospitales, por ejemplo.
+
 ```{r, Juntar datos de hospitales para encontrar stats del conjunto, echo=TRUE}
 ```
+
+Una vez se han resumnido estas estadísticas al conjunto, se muestra en varias gráficas la capacidad de cada unidad en cuanto al número de camas, mostrando la mediana y el área entre el percentil 10 y el 90.
 
 ```{r, Mostrar capacidad del área en cada unidad, echo=TRUE, fig.height  = 4}
 ```
