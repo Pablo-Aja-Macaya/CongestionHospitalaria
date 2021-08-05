@@ -6,9 +6,7 @@
 
 # Notas:
 # - Calcular weibull a partir de los datos antiguos, pero aún así dejar cambiar los valores
-# - Hacer análisis estadístico de la capacidad asistencial (cuanto varían las camas por hospital y unidad en el tiempo)
-  # - De este análisis, usar mediana, percentil 10 y percentil 90 para las camas de un hospital
-# - Pedir áreas sanitarias o crear un diccionario para los 26 hospitales que indique el área sanitaria
+
 
 library(Rlab)
 library(data.table)
@@ -23,12 +21,12 @@ library(glue)
 # ---- Variables  ---- 
 
 # Variables de simulación
-num.cores <- 6
+num.cores <- 6 # número de hilos usados en simulación
 registerDoParallel(num.cores) 
 
-m <- 1000 # Number of samples m=1000
-n.ind <- 1000 # infected individuals N=1000
-n.time <- 250 # Number of days (follow-up time)
+m <- 1000 # simulaciones
+n.ind <- 1000 # individuos infectados
+n.time <- 250 # días (follow-up time)
 
 par.m.size <- m/10 # cuántas simulaciones por núcleo
 par.m.loops <- par.m.size/10 # cuántas tandas
@@ -52,7 +50,6 @@ create.table <- function(df, capt){
 
 # ---- Proporción de edades y sexos ---- 
 # Datos completos
-# create.table(capacidad)
 create.table(casos.org, 'Casos y hospitalizados')
 
 filter.cases <- function(df,area){
@@ -67,8 +64,7 @@ filter.cases <- function(df,area){
 }
 
 get.group.total <- function(df, s){
-  # Coge un dataframe y el sexo objetivo y saca el total de individuos para cada
-  # rango de edad
+  # Coge un dataframe y el sexo objetivo y saca el total de individuos para cada rango de edad
   grupos <- unique(subset(df, sexo==s & grupo_edad!='')$grupo_edad)
   grupos <- grupos[order(grupos)] # ordenar
   l <- list()
@@ -77,6 +73,15 @@ get.group.total <- function(df, s){
     l[[g]] <- tot
   }
   return(unlist(l))
+}
+
+get.mean.age <- function(interval.vector){
+  # Coge un vector como c([10,20), [20,30)) y lo transforma en c(15, 25)
+  tmp <- gsub("\\[|)", "", names(interval.vector))
+  rango.edad <- strsplit(tmp, ',')
+  age.interval <- unlist(lapply(strsplit(tmp, '-'), function(x){mean(as.numeric(x), na.rm=T)}))
+  age.interval <- age.interval[!is.na(age.interval)]
+  return(age.interval)
 }
 
 # Quitar grupos de edad nulos
@@ -98,50 +103,43 @@ men.age.interval <- get.group.total(casos, 'H')
 # PELIGRO: si en los datos de input no se representan todos los grupos en ambos sexos 
 # la simulación podría estar mal equilibrada (ej: si sólo hay hombres de +70 y mujeres de -50 
 # la simulación no creará individuos hombres de 50 años)
-get.mean.age <- function(interval.vector){
-  tmp <- gsub("\\[|)", "", names(interval.vector))
-  rango.edad <- strsplit(tmp, ',')
-  age.interval <- unlist(lapply(strsplit(tmp, '-'), function(x){mean(as.numeric(x), na.rm=T)}))
-  age.interval <- age.interval[!is.na(age.interval)]
-  return(age.interval)
-}
 women.mean.age.interval <- get.mean.age(women.age.interval)
 men.mean.age.interval <- get.mean.age(men.age.interval)
 
-
-# Proporciones
+# Individuos totales por sexo
 total.m <- sum(men.age.interval)
 total.w <- sum(women.age.interval)
 total <- total.w + total.m
 
-prob.w <- total.w/total # Parameter Bernoulli (0=man, 1=woman)
+# Probabilidad de pertencer a cada sexo
+prob.w <- total.w/total
 prob.m <- total.m/total
 
+# Probabilidad de pertenecer a cada rango de edad
 woman.age.prob <- women.age.interval/total.w 
 man.age.prob <- men.age.interval/total.m 
 
-# plot(as.factor(names(women.age.interval)), women.age.interval, main='women.age.interval')
-# plot(as.factor(names(men.age.interval)), men.age.interval, main='men.age.interval')
-
 # -- Proporciones de hospitalizados -- #
+# Hospitalizados por rango de edad y sexo
 women.age.hosp.interval <-  get.group.total(hospitalizados, 'M')
 men.age.hosp.interval <- get.group.total(hospitalizados, 'H')
 
+# Total de hospitalizados por sexo
 total.w.hosp <- sum(women.age.hosp.interval)
 total.m.hosp <- sum(men.age.hosp.interval)
 total.hosp <- total.w.hosp + total.m.hosp
 
+# Probabilidad de pertenecer a cada sexo en hospitalizados
 prob.w.hosp <- total.w.hosp/total.hosp
 prob.m.hosp <- total.m.hosp/total.hosp
+
+# Probabilidad de ser hospitalizado por sexo
 woman.age.prob.hosp <- women.age.hosp.interval/total.w.hosp
 man.age.prob.hosp <- men.age.hosp.interval/total.m.hosp 
 
-# Proporciones muestrales de hospitalizados:
+# Proporciones muestrales de hospitalizados por sexo
 prob.rc.woman <- women.age.hosp.interval/women.age.interval
 prob.rc.man <- men.age.hosp.interval/men.age.interval
-
-# plot(as.factor(names(women.age.hosp.interval)), women.age.hosp.interval, main='women.age.hosp.interval')
-# plot(as.factor(names(men.age.hosp.interval)), men.age.hosp.interval, main='men.age.hosp.interval')
 
 # Proporciones muestrales de hospitalizados:
 prob.rc.real <- ( total.hosp ) / ( total )
@@ -153,31 +151,31 @@ source('analisis_capacidad.R')
 
 # ---- Probabilidades en simulacion ---- 
 
-# -- When a patient is admitted into the hospital -- #
-# Probability of going directly to ICU
+# -- Paciente es admitido en hospital -- #
+# Probabilidad de ir directamente a UCI
 prob.ICU <- sum(subset(hospitalizados, ingreso_uci=='Si' & primera_entrada=='UCI')$cantidad, na.rm=T) / sum(subset(hospitalizados, primera_entrada!='')$cantidad, na.rm=T)
-# Probability of staying in hospital ward first (Seguramente sea necesario el atributo de dirección si se quiere saber si es "first")
+# Probabilidad de quedarse en hospital ward (HW) primero
 prob.HW <- sum(subset(hospitalizados, ingreso_hospitalario=='Si'  & primera_entrada=='HOSP')$cantidad, na.rm=T) / sum(subset(hospitalizados, primera_entrada!='')$cantidad, na.rm=T)
 
 
-# -- Options in HW -- #
-# Of those admitted in hospital ward, the probability of death without going to ICU is
+# -- Opciones en HW -- #
+# Probabilidad de morir antes de pasar a UCI
 prob.HW.death <- mean(subset(hospitalizados, ingreso_hospitalario=='Si' & ingreso_uci=='No')$proporcion_muertos, na.rm=T)
-# Probability that a patient admitted in hospital ward finally has to enter ICU
+# Probabilidad de entrar en UCI
 prob.HW.ICU <- sum(subset(hospitalizados, ingreso_hospitalario=='Si' & ingreso_uci=='Si')$cantidad, na.rm=T) / sum(hospitalizados$cantidad, na.rm=T)
-# Probability that a patient admitted to hospital ward becomes discharged without entering ICU is (Esto no es del todo preciso, incluye a los que se mueren en HW)
+# Probabilidad de irse de HW sin entrar en UCI (Esto no es del todo preciso, incluye a los que se mueren en HW)
 prob.HW.disc <- sum(subset(hospitalizados, ingreso_hospitalario=='Si' & ingreso_uci=='No')$cantidad, na.rm=T) / sum(hospitalizados$cantidad, na.rm=T)
 
 
-# -- Options in ICU -- #
-
-# Probability of dying after being admitted in ICU
+# -- Opciones en UCI-- #
+# Probabilidad de morir tras ser admitido en UCI
 prob.ICU.death <- mean(subset(hospitalizados, ingreso_uci=='Si')$proporcion_muertos, na.rm=T)
 
-# Probability of being transferred to hospital ward after being admitted in ICU
+# Probabilidad de ser transferido a HW después de UCI
 ### PROBLEMA: no se puede ser muy preciso con este campo por falta de datos
 prob.ICU.HW <- sum(subset(hospitalizados, ingreso_hospitalario=='Si' & ingreso_uci=='Si' & primera_entrada!='HOSP')$cantidad, na.rm=T)/ sum(subset(hospitalizados, primera_entrada!='')$cantidad, na.rm=T)
 
+# Sacar por pantalla las probabilidades
 list(prob.ICU=prob.ICU, prob.HW=prob.HW, prob.HW.death=prob.HW.death, prob.HW.ICU=prob.HW.ICU, prob.HW.disc=prob.HW.disc, prob.ICU.death=prob.ICU.death, prob.ICU.HW=prob.ICU.HW)
 
 
@@ -196,6 +194,7 @@ list(prob.ICU=prob.ICU, prob.HW=prob.HW, prob.HW.death=prob.HW.death, prob.HW.IC
 set.seed(123)
 
 res <- foreach (par.m=1:par.m.loops, .errorhandling="pass") %dopar% {
+  
   age <- gender <- inf.time <- prob.rc <- final.state <- matrix(rep(NA, length.out=par.m.size*n.ind), nrow = par.m.size, ncol = n.ind) 
   state <- rep(NA, par.m.size*n.ind*n.time)
   dim(state) <- c(par.m.size, n.ind, n.time)
