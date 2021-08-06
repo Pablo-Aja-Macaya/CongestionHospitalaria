@@ -60,7 +60,7 @@ El número de hilos (num.cores) elegidos depende del ordenador donde se vaya a e
 num.cores <- 6
 registerDoParallel(num.cores) 
 
-m <- 1000 # número de simulaciones
+m <- 2000 # número de simulaciones
 n.ind <- 1000 # individuos simulados
 n.time <- 250 # número de días simulados
 
@@ -185,7 +185,7 @@ Una vez se han completado los pasos iniciales, se simulan las transiciones de es
 
 -   Se calcula el tiempo desde la infección hasta la hospitalización, poniendo 'I' en state hasta el día antes de la hospitalización.
 -   Se calculan las escalas de Weibull, basadas en el sexo y edad del paciente.
--   Tras esto, se simula lo que pasa el primer día de hospitalización (si entra en HW o en UCI, y de estos si se muere, se va o se transfiere al otro) en base a una probabilidad uniforme aleatoria. Por ejemplo, si la probabilidad es menor que la probabilidad de entrar en hospital, el paciente ingresa en hospital. De ahí, si otra probabilidad calculada (v2) es menor que la probabilidad de morir en hospital se calcula el tiempo que pasa hasta su muerte con 'rweibull'. Trase esto, se rellenan los días hasta el día de la muerte con 'H', y el día de la muerte con 'H.Dead'. Después, se apunta en la matriz final.state el último estado final del paciente.
+-   Tras esto, se simula lo que pasa el primer día de hospitalización (si entra en HW o en UCI, y de estos si se muere, se va o se transfiere al otro) en base a una probabilidad uniforme aleatoria. Por ejemplo, si la probabilidad es menor que la probabilidad de entrar en hospital, el paciente ingresa en hospital. De ahí, si otra probabilidad calculada (v2) es menor que la probabilidad de morir en hospital se calcula el tiempo que pasa hasta su muerte con 'rweibull'. Tras esto, se rellenan los días hasta el día de la muerte con 'H', y el día de la muerte con 'H.Dead'. Después, se apunta en la matriz final.state el último estado final del paciente.
 
 Esto se repite para cada paciente hospitalizado, calculando el estado inicial. Una vez hecho esto, se simulan el resto de estados para los pacientes que siguen en 'HOS' o 'UCI' (ni se han muerto ni se les ha dado el alta). Se simula hasta que ningún paciente quede en el hospital o en UCI.
 
@@ -206,6 +206,28 @@ Al final de todo este proceso se calcula el número de personas en UCI, hospital
 
 ## Simulación paralelizada no condicional
 
+En el sistema no condicional los parámetros de Weibull se calculan sin tener en cuenta el sexo y la edad. Además, tampoco se tienen en cuenta para calcular la probabilidad de ser hospitalizado.
+
+
+Para los pasos iniciales de cada simulación se hace lo siguiente:
+
+-   Se definen los parámetros Weibull, sin tener en cuenta el sexo o edad.
+-   Se define el sexo de cada individuo con una distibución aleatoria de Bernoulli, usando las probabilidades calculadas en el apartado 4 y metiendo los resultados en la matriz gender.
+-   Con la distribución de edades reales se asigna a cada individuo una edad. Las edades se introducen en la matriz age.
+-   Se calcula la probabilidad de infección de cada individuo sin tener en cuenta sexo o edad (prob.rc).
+-   Se calcula el día de infección de cada individuo con una distribución normal alrededor del día 60, y se mete el vector en la matriz inf.time.
+-   Desde el día 0 al día de infección para cada individuo se sustituyen los NAs por '0' en state. Tras esto, se sustituye el día de infección por 'I' en state.
+-   El siguiente paso es calcular la probabilidad de que cada individuo vaya a ingresar en el hospital, lo cual se hace con una distribución uniforme comparada con el valor de prob.rc en cada paciente.
+
+
+Una vez se han completado los pasos iniciales, se simulan las transiciones de estado de cada individuo hospitalizado:
+
+-   Se calcula el tiempo desde la infección hasta la hospitalización, poniendo 'I' en state hasta el día antes de la hospitalización.
+-   Tras esto, se simula lo que pasa el primer día de hospitalización (si entra en HW o en UCI, y de estos si se muere, se va o se transfiere al otro) en base a una probabilidad uniforme aleatoria. Por ejemplo, si la probabilidad es menor que la probabilidad de entrar en hospital, el paciente ingresa en hospital. De ahí, si otra probabilidad calculada (v2) es menor que la probabilidad de morir en hospital se calcula el tiempo que pasa hasta su muerte con 'rweibull'. Tras esto, se rellenan los días hasta el día de la muerte con 'H', y el día de la muerte con 'H.Dead'. Después, se apunta en la matriz final.state el último estado final del paciente.
+
+Esto se repite para cada paciente hospitalizado, calculando el estado inicial. Una vez hecho esto, se simulan el resto de estados para los pacientes que siguen en 'HOS' o 'UCI' (ni se han muerto ni se les ha dado el alta). Se simula hasta que ningún paciente quede en el hospital o en UCI.
+
+
 &nbsp;
 <details><summary style="background-color: #f4f6f6 "><a>Mostrar código de simulación</a></summary>
 
@@ -214,6 +236,8 @@ Al final de todo este proceso se calcula el número de personas en UCI, hospital
 
 </details>
 &nbsp;
+
+Al final de todo este proceso se calcula el número de personas en UCI, hospitalizadas, muertas o dadas de alta por día. Estas son las matrices resultado. Como cada hilo produce una lista de matrices, es necesario juntarlas una a una mediante la función 'get.sim.results'.  
 
 ```{r, Resultados no condicionales, echo=TRUE}
 ```
