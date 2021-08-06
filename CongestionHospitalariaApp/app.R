@@ -16,8 +16,52 @@ library(dplyr)
 
 #  ---- Variables de datos ----
 areas.hospitales <- data.frame(read_csv("../datos/areas_hospitales_correspondencia.csv"))
+casos.org <- data.frame(read_csv("../datos/sivies_agreg_area_sanitaria.csv")) # casos base
 capacidad.org <- data.frame(read_csv("../datos/capacidadasistencial.csv", locale = locale(encoding = "ISO-8859-1"))) # capacidad asistencial
 names(capacidad.org) <- tolower(names(capacidad.org))
+
+#########################
+# ------- Casos ------- #
+#########################
+filter.cases <- function(df,area){
+    # Filtra el dataframe de casos según área sanitaria
+    # Si se pone 'all' se cogen todas las áreas
+    if (area=='all'){
+        casos <- df
+    } else {
+        casos <- subset(df, area_sanitaria==area)
+    }
+    return(casos)
+}
+
+get.group.total <- function(df, s){
+    # Coge un dataframe y el sexo objetivo y saca el total de individuos para cada rango de edad
+    grupos <- unique(subset(df, sexo==s & grupo_edad!='')$grupo_edad)
+    grupos <- grupos[order(grupos)] # ordenar
+    l <- list()
+    for (g in grupos){
+        tot <- sum(subset(df, sexo==s & grupo_edad==g)$cantidad)
+        l[[g]] <- tot
+    }
+    return(unlist(l))
+}
+
+get.mean.age <- function(interval.vector){
+    # Coge un vector como c([10,20), [20,30)) y lo transforma en c(15, 25)
+    tmp <- gsub("\\[|)", "", names(interval.vector))
+    rango.edad <- strsplit(tmp, ',')
+    age.interval <- unlist(lapply(strsplit(tmp, '-'), function(x){mean(as.numeric(x), na.rm=T)}))
+    age.interval <- age.interval[!is.na(age.interval)]
+    return(age.interval)
+}
+
+# Quitar grupos de edad nulos
+casos.org <- subset(casos.org, grupo_edad!='NULL')
+
+
+#########################
+# ----- Capacidad ----- #
+#########################
 
 # ---- Preprocesado de capacidad ----
 # Meter áreas sanitarias
@@ -45,9 +89,11 @@ ui <- fluidPage(
     titlePanel(
         h2(strong("Congestión Hospitalaria"), style = "color:#008080"),
     ),
-    hr(),
+    br(),
+    # ---- Variables y resultados ----
     sidebarLayout(
         sidebarPanel(
+            # ---- Variables comunes ----
             h4(strong("Variables comunes"), style = "color:#008080"),
             selectInput("area.sanitaria", 
                         strong("Área sanitaria:"), 
@@ -57,9 +103,11 @@ ui <- fluidPage(
                         selected = "Coruña - Cee"
             ),
             hr(),
+            
+            # --- Variables de simulación ----
             h4(strong("Variables de simulación"), style = "color:#008080"),
             numericInput("m", strong("Simulaciones:"),
-                        min = 0, max = 2000, value = 100),
+                         min = 0, max = 2000, value = 100),
             numericInput("n.ind", strong("Individuos:"),
                          min = 0, max = 1000, value = 1000),
             numericInput("n.time", strong("Días:"),
@@ -68,18 +116,66 @@ ui <- fluidPage(
                          min = 0, max = 200, value = 100),
             numericInput("par.m.loops", strong("Tandas de simulación:"),
                          min = 1, max = 20, value = 10),
+            hr(),
+            
+            # ---- Probabilidades ----
+            h4(strong("Probabilidades iniciales"), style = "color:#008080"),
+            fluidRow(
+                column(6,
+                       sliderInput("x", strong("Ingresar en UCI:"),
+                                   min = 0, max = 1, value = 0.5, ticks=F),                       
+                ),
+                column(6,
+                       sliderInput("x", strong("Ingresar en hospital:"),
+                                   min = 0, max = 1, value = 0.5, ticks=F),                       
+                ),
+            ),
+            
+            h4(strong("Probabilidades desde hospital"), style = "color:#008080"),
+            fluidRow(
+                column(4,
+                       sliderInput("x", strong("Muerte:"),
+                                   min = 0, max = 1, value = 0.5, ticks=F),                     
+                ),
+                column(4,
+                       sliderInput("x", strong("Ir a UCI:"),
+                                   min = 0, max = 1, value = 0.5, ticks=F),                      
+                ),
+                column(4,
+                       sliderInput("x", strong("Discharge:"),
+                                   min = 0, max = 1, value = 0.5, ticks=F),                    
+                ),
+            ),
+
+            h4(strong("Probabilidades desde UCI"), style = "color:#008080"),
+            fluidRow(
+                column(6,
+                       sliderInput("x", strong("Muerte:"),
+                                   min = 0, max = 1, value = 0.5, ticks=F),                     
+                ),
+                column(6,
+                       sliderInput("x", strong("Ir a hospital:"),
+                                   min = 0, max = 1, value = 0.5, ticks=F),                     
+                ),
+            ),
+
+            hr(),
+            
+            # ---- Botón de simulación ----
             fluidRow(
                 column(12,actionButton("ejecutar_simulacion","Simulación"),align='center')
             ),
+            
+
 
             
             
         ),
+        # ---- Apartados ----
         mainPanel(
             tabsetPanel(type = "tabs",
                         tabPanel("Análisis capacidad", 
                                  h3(strong('Análisis de capacidad')),
-                                 # textOutput("sel.area.sanitaria"),
                                  plotOutput("analisis", height=800)                                 
                         ),
                         tabPanel("Simulación", 
@@ -89,7 +185,7 @@ ui <- fluidPage(
 
         ),
     ),
-    
+    # ---- Tablas ----
     fluidRow(
         column(
             tabsetPanel(type = "tabs",
@@ -97,9 +193,9 @@ ui <- fluidPage(
                                  br(),
                                  dataTableOutput("table.capacidades")                             
                         ),
-                        tabPanel("Pacientes",
+                        tabPanel("Casos",
                                  br(),
-                                 p('Tabla')
+                                 dataTableOutput("table.casos") 
                         )
             ),
         width = 12  )
@@ -204,6 +300,7 @@ server <- function(input, output) {
         
     })
     output$table.capacidades <- renderDataTable(capacidad.filter(), options = list(scrollX = TRUE, pageLength = 5))
+    output$table.casos <- renderDataTable(casos.org, options = list(scrollX = TRUE, pageLength = 5))
     output$analisis <- renderPlot(analisis.capacidad())
 }
 
