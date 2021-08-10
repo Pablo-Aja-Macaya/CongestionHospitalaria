@@ -60,7 +60,7 @@ El número de hilos (num.cores) elegidos depende del ordenador donde se vaya a e
 num.cores <- 6
 registerDoParallel(num.cores) 
 
-m <- 2000 # número de simulaciones
+m <- 1000 # número de simulaciones
 n.ind <- 1000 # individuos simulados
 n.time <- 250 # número de días simulados
 
@@ -114,7 +114,7 @@ Se hace un merge del dataframe de CMC con una hoja de cálculo que contiene en c
 
 ## Filtrado
 
-Se filtran los datos de capacidad, seleccionando el area sanitaria eligida, y filtrando por si se quieren hospitales de referencia o no.
+Se filtran los datos de capacidad, seleccionando el área sanitaria elegida, y filtrando por si se quieren hospitales de referencia o no.
 
 ```{r, Filtrado de capacidad, echo=TRUE}
 ```
@@ -149,7 +149,7 @@ Para dar una visión general del conjunto de hospitales seleccionado, se resumen
 ```{r, Juntar datos de hospitales para encontrar stats del conjunto, echo=TRUE}
 ```
 
-Una vez se han resumnido estas estadísticas al conjunto, se muestra en varias gráficas la capacidad de cada unidad en cuanto al número de camas, mostrando la mediana y el área entre el percentil 10 y el 90.
+Una vez se han resumido estas estadísticas al conjunto, se muestra en varias gráficas la capacidad de cada unidad en cuanto al número de camas, mostrando la mediana y el área entre el percentil 10 y el 90.
 
 ```{r, Mostrar capacidad del área en cada unidad, echo=TRUE, fig.height  = 4}
 ```
@@ -175,7 +175,7 @@ En el sistema condicional los parámetros de Weibull se calculan teniendo en cue
 
 Para los pasos iniciales de cada simulación se hace lo siguiente:
 
--   Se define el sexo de cada individuo con una distibución aleatoria de Bernoulli, usando las probabilidades calculadas en el apartado 4 y metiendo los resultados en la matriz gender.
+-   Se define el sexo de cada individuo con una distribución aleatoria de Bernoulli, usando las probabilidades calculadas en el apartado 4 y metiendo los resultados en la matriz gender.
 -   Con la distribución de edades reales se selecciona una etapa (ej: 54.5) y su probabilidad de hospitalización (ej: 0.28) para cada individuo según su sexo. Las edades se introducen en la matriz age y las probabilidades en prob.rc.
 -   Se calcula el día de infección de cada individuo con una distribución normal alrededor del día 60, y se mete el vector en la matriz inf.time.
 -   Desde el día 0 al día de infección para cada individuo se sustituyen los NAs por '0' en state. Tras esto, se sustituye el día de infección por 'I' en state.
@@ -212,7 +212,7 @@ En el sistema no condicional los parámetros de Weibull se calculan sin tener en
 Para los pasos iniciales de cada simulación se hace lo siguiente:
 
 -   Se definen los parámetros Weibull, sin tener en cuenta el sexo o edad.
--   Se define el sexo de cada individuo con una distibución aleatoria de Bernoulli, usando las probabilidades calculadas en el apartado 4 y metiendo los resultados en la matriz gender.
+-   Se define el sexo de cada individuo con una distribución aleatoria de Bernoulli, usando las probabilidades calculadas en el apartado 4 y metiendo los resultados en la matriz gender.
 -   Con la distribución de edades reales se asigna a cada individuo una edad. Las edades se introducen en la matriz age.
 -   Se calcula la probabilidad de infección de cada individuo sin tener en cuenta sexo o edad (prob.rc).
 -   Se calcula el día de infección de cada individuo con una distribución normal alrededor del día 60, y se mete el vector en la matriz inf.time.
