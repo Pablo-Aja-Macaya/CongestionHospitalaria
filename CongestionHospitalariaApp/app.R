@@ -2,10 +2,13 @@
 # This is a Shiny web application. You can run the application by clicking
 # the 'Run App' button above.
 #
-
+# Shiny
 library(shiny)
 library(shinyjs)
 library(shinycssloaders)
+library(shinybusy)
+library(shinythemes)
+# Simulación
 library(Rlab)
 library(data.table)
 library(scales)
@@ -84,24 +87,65 @@ filter.cap <- function(df,a){
     return(cap)
 }
 
+# ---- Examen de días por encima del límite ----
+check.hosp.capacity <- function(hosp, icu, neto, t, cap.stats, time){
+    par(mfrow=c(1,1))
+    # ---- Ver si en algún momento se superó el número de camas ---- #
+    cap.convencional <- cap.stats['mediana','Hospitalización convencional']
+    cap.uci <- sum(cap.stats['mediana',c('U. Críticas CON respirador', 'U. Críticas SIN respirador')])
+    
+    # Número de días que se sobrepasa
+    sim.tot.hosp <- hosp+icu
+    dias.sobrepasados.convencional <- sum(sim.tot.hosp>=cap.convencional)
+    dias.sobrepasados.uci <- sum(icu>=cap.uci)
+    
+    # Gráficas
+    plot(NA, xlim=c(0,time), ylim=c(0,max(max(sim.tot.hosp)+20)), xlab="Días", ylab="Casos", main=t)
+    
+    add.range <- function(cap.stats, unidad, col){
+        mediana <- cap.stats['mediana',unidad]
+        p10 <- cap.stats['percentil10',unidad]
+        p90 <- cap.stats['percentil90',unidad]
+        abline(h=p10, col='black', lty=2)
+        abline(h=p90, col='black', lty=2)
+        abline(h=mediana, col='red', lty=1)
+        rect(0-50,p90,
+             time+50,p10,
+             col= col, lwd=0)
+    }
+    add.range(cap.stats,'Hospitalización convencional',rgb(0,1,0,alpha=0.1))
+    add.range(cap.stats,'U. Críticas CON respirador',rgb(0,0,1,alpha=0.1))
+    add.range(cap.stats,'U. Críticas SIN respirador',rgb(1,0,0,alpha=0.1))
+    
+    lines(hosp, type="l",lty=1, lwd=2, col='pink')
+    lines(icu, type="l",lty=1, lwd=2, col='red')
+    lines(sim.tot.hosp, type="l",lty=1, lwd=2, col='orange')
+    lines(neto,lty=1, lwd=2, col='green')
+    
+    legend("topright", legend = c("nHOS", "nICU",'nHOS+nICU','Cambio neto (in-out)'),
+           col = c('pink','red','orange','green'), lty=c(1,1,1,1,2), pch = c(NA,NA,NA,NA), bty = "n")
+
+    title(sub=paste('Días sobrepasados en HOSP: ', dias.sobrepasados.convencional), adj=1, line=2, font=2,cex.sub = 0.75)
+    title(sub=paste('Días sobrepasados en UCI: ', dias.sobrepasados.uci), adj=1, line=3, font=2,cex.sub = 0.75)
+    
+}
 
 
 #################
 # ---- APP ---- #
 #################
 ui <- fluidPage(
+    theme = shinytheme("lumen"),
     shinyjs::useShinyjs(),
-    titlePanel(
-        h2(strong("Congestión Hospitalaria"), style = "color:#008080"),
-    ),
+    tags$style(HTML('table.dataTable tr.selected td, table.dataTable td.selected {background-color: #008080 !important; color: white !important}')), # color de highlight de tabla
+    add_busy_bar(color = "#008080"),
+    title="Congestión Hospitalaria",
+    titlePanel(h2(strong("Congestión Hospitalaria"), style = "color:#008080")),
+
     br(),
     # ---- Variables y resultados ----
     sidebarLayout(
         sidebarPanel(
-            # ---- Botón de simulación ----
-            fluidRow(
-                column(12,actionButton("ejecutar_simulacion","Simulación"),align='center')
-            ),
             # ---- Variables comunes ----
             h4(strong("Variables comunes"), style = "color:#008080"),
             selectInput("area.sanitaria", 
@@ -143,6 +187,11 @@ ui <- fluidPage(
                        numericInput("par.m.loops", strong("Tandas de simulación:"),
                                     min = 1, max = 20, value = 10),                     
                 ),
+            ),
+            # ---- Botón de simulación ----
+            fluidRow(
+                column(12,actionButton("ejecutar_simulacion","Ejecutar simulación", icon("paper-plane"), 
+                                       style="color: #fff; background-color: #337ab7; border-color: #2e6da4;"),align='center')
             ),
             hr(),
             
@@ -205,9 +254,12 @@ ui <- fluidPage(
 
             
         ),
+
         # ---- Apartados ----
         mainPanel(
-            tabsetPanel(type = "tabs",
+
+            # ---- Tabsets de gráficas ----
+            tabsetPanel(id='tabset_resultados', type = "tabs",
                         tabPanel("Análisis capacidad", 
                                  h3(strong('Análisis de capacidad')),
                                  plotOutput("analisis", height=800) %>% withSpinner()
@@ -215,9 +267,11 @@ ui <- fluidPage(
                         ),
                         tabPanel("Simulación", 
                                  h3(strong('Simulación')),
-                                 plotOutput("res.condicional") %>% withSpinner()
+                                 plotOutput("res.condicional") %>% withSpinner(),
+                                 plotOutput("res.incondicional") %>% withSpinner()
                         )
-            )
+            ),
+
 
         ),
     ),
@@ -380,7 +434,7 @@ server <- function(input, output, session) {
                 median.sobrepasado <- fechas[which(tot.ocupadas>mediana)]
                 
                 # Histograma
-                hist(tot, main=glue('{h} \n({u})'), col='gray', xlab='Total camas') 
+                hist(tot, main=glue('{h} \n({u})'), col=rgb(66/255, 139/255, 202/255, alpha=0.8), xlab='Total camas') 
                 title(sub=paste('Mediana:', mediana), adj=1, line=2, font=2,cex.sub = 0.75)
                 title(sub=paste('Percentil 10:', percentiles[['10%']]), adj=1, line=3, font=2,cex.sub = 0.75)
                 title(sub=paste('Percentil 90:', percentiles[['90%']]), adj=1, line=4, font=2,cex.sub = 0.75)
@@ -474,9 +528,11 @@ server <- function(input, output, session) {
     }, priority=4)    
     
     ##############################################################
-    # ---- Simulación condicional ----
+    # ---- Simulaciones ----
     resultados <- reactiveValues()
     observeEvent(input$ejecutar_simulacion,{
+        updateTabsetPanel(session = session, inputId = "tabset_resultados", selected = "Análisis capacidad")
+        # Proporciones
         prob.rc.real <- proporciones$prob.rc.real
         prob.rc.woman <- proporciones$prob.rc.woman
         prob.rc.man <- proporciones$prob.rc.man
@@ -511,8 +567,9 @@ server <- function(input, output, session) {
         par.m.size <- input$par.m.size # cuántas simulaciones por núcleo
         par.m.loops <- input$par.m.loops # cuántas tandas
         
-        cat(m, n.ind, n.time, par.m.size, par.m.loops,'\n')
-        cat(prob.ICU.death)
+        ####################################
+        # ---- Simulación condicional ---- #
+        ####################################
         # Cada bucle paralelo crea una lista de resultados (n.HOS, n.ICU...)
         # Al final se tiene una lista de longitud=par.m.loops, cada una con una lista de resultados
         set.seed(123)
@@ -689,7 +746,6 @@ server <- function(input, output, session) {
         
         stopImplicitCluster()
         
-        
         # ----- Resultados condicionales ---- 
         # El sistema produce resultados por hilo y es necesario juntarlos
         # Se obtienen matrices de dimensiones simulaciones*pacientes*dias
@@ -714,63 +770,233 @@ server <- function(input, output, session) {
             nICU.Dead[k] <- sum(n.ICU.Dead[,k], na.rm=T)/m
         }
         
-
-        resultados$cambio.neto <- nHOS+nICU-(nDischarge+nDead+nH.Dead+nICU.Dead)
+        # Guardar resultados
+        resultados$cambio.neto.cond <- nHOS+nICU-(nDischarge+nDead+nH.Dead+nICU.Dead)
         resultados$nHOS <- nHOS
         resultados$nICU <- nICU
         
-
+        #######################################
+        # ---- Simulación no condicional ---- #
+        #######################################
+        # Cálculo previo de Weibull 
+        scale.ICU.death <- 15.5 
+        scale.ICU.HW <- 16.3 
+        scale.HW.disc <- 8.4
+        scale.HW.ICU <- 4.2
+        
+        # Cada bucle paralelo crea una lista de resultados (n.HOS, n.ICU...)
+        # Al final se tiene una lista de longitud=par.m.loops, cada una con una lista de resultados
+        set.seed(123)
+        res <- foreach (par.m=1:par.m.loops, .errorhandling="pas") %dopar% {
+            # Se inicializan matrices vacías necesarias para la simulación
+            # Dependiendo de cada una pueden tener dos dimensiones (simulacion*individuo)
+            # o tres (simulacion*individuo*dia)
+            age.inc <- gender.inc <- inf.time <- prob.rc <- final.state.inc <- matrix(rep(NA, length.out=par.m.size*n.ind), nrow = par.m.size, ncol = n.ind) 
+            n.HOS.inc <- n.ICU.inc <- n.Dead.inc <- n.Discharge.inc <- n.H.Dead.inc <- n.ICU.inc.Dead.inc  <- matrix(rep(NA, length.out= par.m.size*n.time), nrow = par.m.size, ncol = n.time)
+            
+            # Inicialización de matriz state, la cual contendrá, para cada simulación, el estado
+            # de cada individuo por día
+            state.inc <- rep(NA, par.m.size*n.ind*n.time)
+            dim(state.inc) <- c(par.m.size, n.ind, n.time)
+            
+            for (j in 1:par.m.size){
+                #-------------------------------------------------------------
+                # -- Definición del sexo de cada individuo usando Bernoulli --
+                #-------------------------------------------------------------
+                # Mujeres serán 1 y hombres 0
+                gender.inc[j,] <- rbern(n.ind, prob=prob.w) # Gender from real data distribution
+                
+                #-------------------------------------------------
+                # -- Edad y posibilidad de ingresar en hospital --
+                #-------------------------------------------------
+                for (i in 1:n.ind){
+                    if (gender.inc[j,i] == 1) { # mujeres
+                        n.interval <- sample(1:length(woman.age.prob),size=1,prob=woman.age.prob)
+                        age.inc[j,i] <- women.mean.age.interval[n.interval]
+                    } else { # hombres
+                        n.interval <- sample(1:length(man.age.prob),size=1,prob=man.age.prob)
+                        age.inc[j,i] <- men.mean.age.interval[n.interval]
+                    }
+                    
+                }  
+                prob.rc[j,] <- prob.rc.real
+                
+                #-----------------------------------------------------
+                # -- Día en el que se infecta (distribución normal) --
+                # ----------------------------------------------------
+                inf.time[j,] <-rnorm(n=n.ind, mean=60, sd=10)
+                
+                # Definición del día de infección en state
+                # Los días previos a la infección se guardan como "0", y el día de infección como "I"
+                for (i in 1:n.ind){
+                    state.inc[j, i, 1:(ceiling(inf.time[j,i])-1)] = 0
+                    state.inc[j, i, ceiling(inf.time[j,i])] = "I"
+                }
+                
+                #--------------------------------------------------------
+                # -- Se definen individuos que ingresan en el hospital --
+                #--------------------------------------------------------
+                u <- runif(n.ind)
+                ind.H <- which(u<=prob.rc[j,])
+                
+                # -- Para cada individuo seleccionado (que tiene la enfermedad y es hospitalizado) --
+                for (i in ind.H){
+                    # Time since infection until hospital admission
+                    t.inf.until.hosp <- rnorm(n=1, mean=12-0.05*age.inc[j,i], sd=1)
+                    state.inc[j,i,(ceiling(inf.time[j,i])+1):ceiling((inf.time[j,i] + t.inf.until.hosp-1))] = "I"
+                    
+                    #-------------------------------------------------
+                    # -- Simulación del primer estado del individuo --
+                    #-------------------------------------------------
+                    v1 <- runif(1)
+                    if (v1 <= prob.HW) {# Patient in hospital ward
+                        v2 <- runif(1)
+                        if (v2 <= prob.HW.death) {# Patient dies in HW
+                            time.HW.death <- rexp(1, 0.1)# Of those admitted in hospital ward, the time to death 
+                            state.inc[j,i,ceiling(inf.time[j,i] + t.inf.until.hosp) : ceiling(inf.time[j,i] + t.inf.until.hosp + time.HW.death)-1] = "H"
+                            state.inc[j,i,ceiling(inf.time[j,i] + t.inf.until.hosp + time.HW.death)] = "H.Dead"
+                            final.state.inc[j,i] = "Dead"
+                        } else if ( (v2 > prob.HW.death) && (v2 <= prob.HW.death+prob.HW.ICU) ) {# Patient goes to ICU
+                            time.HW.ICU <- rweibull(1, shape=1.6, scale=scale.HW.ICU)# Time since hospital ward admission to ICU
+                            state.inc[j,i,ceiling(inf.time[j,i] + t.inf.until.hosp) : ceiling(inf.time[j,i] + t.inf.until.hosp + time.HW.ICU)] = "H"
+                            final.state.inc[j,i] = "ICU"
+                        } else {# Patient discharged
+                            time.HW.disc <- rweibull(1, shape=2.6, scale=scale.HW.disc )# Time since hospital ward admission to discharge is
+                            state.inc[j,i,ceiling(inf.time[j,i] + t.inf.until.hosp) : ceiling(inf.time[j,i] + t.inf.until.hosp + time.HW.disc)-1] = "H"
+                            state.inc[j,i,ceiling(inf.time[j,i] + t.inf.until.hosp + time.HW.disc)] = "H.Discharge"
+                            final.state.inc[j,i] = "Discharge"}
+                    } else {
+                        #---------------------------------------------
+                        # Patient in ICU
+                        v3 <- runif(1)
+                        if (v3 <= prob.ICU.death) {# Patient dies in ICU
+                            time.ICU.death <- rweibull(1, shape=1.4, scale=scale.ICU.death)# Time from admission in ICU to death
+                            state.inc[j,i,ceiling(inf.time[j,i] + t.inf.until.hosp) : ceiling(inf.time[j,i] + t.inf.until.hosp + time.ICU.death)-1] = "ICU"
+                            state.inc[j,i,ceiling(inf.time[j,i] + t.inf.until.hosp + time.ICU.death)] = "ICU.Dead"
+                            final.state.inc[j,i] = "Dead"
+                        } else {# Patient goes to hospital ward
+                            time.ICU.HW <- rweibull(1, shape=1.8, scale=scale.ICU.HW ) # Time since admission in ICU till return to ward
+                            state.inc[j,i,ceiling(inf.time[j,i] + t.inf.until.hosp) : ceiling(inf.time[j,i] + t.inf.until.hosp + time.ICU.HW)] = "ICU"
+                            final.state.inc[j,i] = "HOS"
+                        }}
+                    
+                    #-------------------------------------------------------------------------------
+                    # -- Simulación del resto de estados para pacientes que queden en el hospital --
+                    #-------------------------------------------------------------------------------
+                    # Los pacientes que llegan a este punto no han muerto ni han salido del hospital
+                    # Son los que su estado final todavía está por decidir
+                    # Se repite el bucle while hasta que los individuos mueran, salgan del hospital o se acabe la simulación
+                    while((final.state.inc[j,i]=="HOS") | (final.state.inc[j,i]=="ICU")){
+                        # Calcular el índice del siguiente día, en el que no se sabe el estado (es NA)
+                        i.final <- min(which(is.na(state.inc[j,i,])))
+                        
+                        # Comprobar si se sobrepasa del tiempo de simulación
+                        if (is.infinite(i.final)){
+                            break
+                        }
+                        
+                        # -- Simulación --
+                        if(final.state.inc[j,i]=="HOS"){
+                            # Si el estado final actual es HOS
+                            v2 <- runif(1)
+                            if (v2 <= prob.HW.death) {# Patient dies in HW
+                                time.HW.death <- rexp(1, 0.1)# Of those admitted in hospital ward, the time to death 
+                                state.inc[j, i, i.final: pmin(n.time,ceiling(i.final+time.HW.death)-1)] = "H"
+                                state.inc[j, i, pmin(n.time,ceiling(i.final+time.HW.death))] = "H.Dead"
+                                final.state.inc[j,i] = "Dead"
+                            } else if ( (v2 > prob.HW.death) && (v2 <= prob.HW.death+prob.HW.ICU) ) {# Patient goes to ICU
+                                time.HW.ICU <- rweibull(1, shape=1.6, scale=scale.HW.ICU)# Time since hospital ward admission to ICU
+                                state.inc[j,i,i.final: pmin(n.time,ceiling(i.final+time.HW.ICU))] = "H"
+                                final.state.inc[j,i] = "ICU"
+                            } else {# Patient discharged
+                                time.HW.disc <- rweibull(1, shape=2.6, scale=scale.HW.disc)# Time since hospital ward admission to discharge is
+                                state.inc[j,i,i.final: pmin(n.time,ceiling(i.final+time.HW.disc)-1)] = "H"
+                                state.inc[j,i,pmin(n.time,ceiling(i.final+time.HW.disc))] = "H.Discharge"
+                                final.state.inc[j,i] = "Discharge"}
+                        } else {
+                            # Si el estado final actual es UCI
+                            v3 <- runif(1)
+                            if (v3 <= prob.ICU.death) {# Patient dies in ICU
+                                time.ICU.death <- rweibull(1, shape=1.4, scale=scale.ICU.death)# Time from admission in ICU to death
+                                state.inc[j,i,i.final : pmin(n.time,ceiling(i.final+time.ICU.death)-1)] = "ICU"
+                                state.inc[j,i,pmin(n.time,ceiling(i.final+time.ICU.death))] = "ICU.Dead"
+                                final.state.inc[j,i] = "Dead"
+                            } else {# Patient goes to hospital ward
+                                time.ICU.HW <- rweibull(1, shape=1.8, scale=scale.ICU.HW ) # Time since admission in ICU till return to ward
+                                state.inc[j,i,i.final : pmin(n.time,ceiling(i.final+time.ICU.HW))] = "ICU"
+                                final.state.inc[j,i] = "HOS"
+                            }}
+                        
+                    } # end while
+                } # end i in n.ind
+                
+                #---------------------------------------------------------------------------------
+                # Almacenar número de pacientes por simulación en cada estado por día (HOS, ICU, Dead, Discharge)
+                #---------------------------------------------------------------------------------
+                for (k in 1:n.time){
+                    n.HOS.inc[j,k] <- length(which(state.inc[j, ,k]=="H"))
+                    n.ICU.inc[j,k] <- length(which(state.inc[j, ,k]=="ICU"))
+                    n.H.Dead.inc[j,k] <- length(which(state.inc[j, ,k]=="H.Dead"))
+                    n.Discharge.inc[j,k] <- length(which(state.inc[j, ,k]=="H.Discharge"))
+                    n.ICU.inc.Dead.inc[j,k] <- length(which(state.inc[j, ,k]=="ICU.Dead"))
+                    n.Dead.inc[j,k] <- n.H.Dead.inc[j,k] + n.ICU.inc.Dead.inc[j,k]
+                }
+            } # end j in m
+            # Esta línea saca fuera del bucle paralelo la información
+            list(n.HOS.inc=n.HOS.inc,n.ICU.inc=n.ICU.inc,n.H.Dead.inc=n.H.Dead.inc,n.Discharge.inc=n.Discharge.inc,n.ICU.inc.Dead.inc=n.ICU.inc.Dead.inc,n.Dead.inc=n.Dead.inc)
+        }
+        stopImplicitCluster()
+        
+        
+        # ---- Resultados no condicionales ----
+        # El sistema produce resultados por hilo y es necesario juntarlos
+        # Se obtienen matrices de dimensiones simulaciones*pacientes*dias
+        get.sim.results <- function(res, name){
+            return(do.call(rbind, lapply(res, function(x){x[[name]]})))
+        }
+        
+        n.HOS.inc <- get.sim.results(res, 'n.HOS.inc')
+        n.ICU.inc <- get.sim.results(res, 'n.ICU.inc')
+        n.Dead.inc <- get.sim.results(res, 'n.Dead.inc')
+        n.Discharge.inc <- get.sim.results(res, 'n.Discharge.inc')
+        n.H.Dead.inc <- get.sim.results(res, 'n.H.Dead.inc')
+        n.ICU.inc.Dead.inc <- get.sim.results(res, 'n.ICU.inc.Dead.inc')
+        
+        # Se calcula el número de individuos por día en cada categoría (pacientes*dias)
+        nHOS.inc <- nICU.inc <- nDead.inc <- nDischarge.inc <- nH.Dead.inc <- nICU.inc.Dead  <- rep(0, length.out= n.time) 
+        for (k in 1:n.time){
+            nHOS.inc[k] <- sum(n.HOS.inc[,k], na.rm=T)/m
+            nICU.inc[k] <- sum(n.ICU.inc[,k], na.rm=T)/m
+            nDead.inc[k] <- sum(n.Dead.inc[,k], na.rm=T)/m
+            nDischarge.inc[k] <- sum(n.Discharge.inc[,k], na.rm=T)/m
+            nH.Dead.inc[k] <- sum(n.H.Dead.inc[,k], na.rm=T)/m
+            nICU.inc.Dead[k] <-sum(n.ICU.inc.Dead.inc[,k], na.rm=T)/m
+        }
+        
+        # Guardar resultados
+        resultados$cambio.neto.inc <- nHOS.inc+nICU.inc-(nDischarge.inc+nDead+nH.Dead.inc+nICU.inc.Dead)
+        resultados$nHOS.inc <- nHOS.inc
+        resultados$nICU.inc <- nICU.inc
+        
     }, priority=3)
     
     plot.condicional.res <- reactive({
-        # ---- Examen de días por encima del límite ----
-        check.hosp.capacity <- function(hosp, icu, neto, t, cap.stats){
-            par(mfrow=c(1,1))
-            print(cap.stats)
-            # ---- Ver si en algún momento se superó el número de camas ---- #
-            cap.convencional <- cap.stats['mediana','Hospitalización convencional']
-            cap.uci <- sum(cap.stats['mediana',c('U. Críticas CON respirador', 'U. Críticas SIN respirador')])
-
-            # Número de días que se sobrepasa
-            sim.tot.hosp <- hosp+icu
-            dias.sobrepasados.convencional <- sum(sim.tot.hosp>=cap.convencional)
-            dias.sobrepasados.uci <- sum(icu>=cap.uci)
-
-            # Gráficas
-            plot(NA, xlim=c(0,n.time), ylim=c(0,max(max(sim.tot.hosp)+20)), xlab="Días", ylab="Casos", main=t)
-
-            add.range <- function(cap.stats, unidad, col){
-                mediana <- cap.stats['mediana',unidad]
-                p10 <- cap.stats['percentil10',unidad]
-                p90 <- cap.stats['percentil90',unidad]
-                abline(h=p10, col='black', lty=2)
-                abline(h=p90, col='black', lty=2)
-                abline(h=mediana, col='red', lty=1)
-                rect(0-50,p90,
-                     n.time+50,p10,
-                     col= col, lwd=0)
-            }
-            add.range(cap.stats,'Hospitalización convencional',rgb(0,1,0,alpha=0.1))
-            add.range(cap.stats,'U. Críticas CON respirador',rgb(0,0,1,alpha=0.1))
-            add.range(cap.stats,'U. Críticas SIN respirador',rgb(1,0,0,alpha=0.1))
-
-            lines(hosp, type="l",lty=1, lwd=2, col='pink')
-            lines(icu, type="l",lty=1, lwd=2, col='red')
-            lines(sim.tot.hosp, type="l",lty=1, lwd=2, col='orange')
-            lines(neto,lty=1, lwd=2, col='green')
-
-            title(sub=paste('Días sobrepasados en HOSP: ', dias.sobrepasados.convencional), adj=1, line=2, font=2,cex.sub = 0.75)
-            title(sub=paste('Días sobrepasados en UCI: ', dias.sobrepasados.uci), adj=1, line=3, font=2,cex.sub = 0.75)
-
-        }
         n.time <- input$n.time # días (follow-up time)
         check.hosp.capacity(resultados$nHOS, resultados$nICU,
-                            resultados$cambio.neto, t='Condicional',
-                            capacidades$area.capacity.stats)
+                            resultados$cambio.neto.cond, t='Condicional',
+                            capacidades$area.capacity.stats, n.time)
 
+    })
+    plot.incondicional.res <- reactive({
+        n.time <- input$n.time # días (follow-up time)
+        check.hosp.capacity(resultados$nHOS.inc, resultados$nICU.inc,
+                            resultados$cambio.neto.inc, t='Incondicional',
+                            capacidades$area.capacity.stats, n.time)
+        
     })
     observe({
         output$res.condicional <- renderPlot(plot.condicional.res())
+        output$res.incondicional <- renderPlot(plot.incondicional.res())
     })
     
     #############################################################
