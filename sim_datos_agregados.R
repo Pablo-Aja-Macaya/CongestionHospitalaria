@@ -28,8 +28,9 @@ m <- 1000 # simulaciones
 n.ind <- 1000 # individuos infectados
 n.time <- 250 # días (follow-up time)
 
-par.m.size <- m/10 # cuántas simulaciones por núcleo
-par.m.loops <- par.m.size/10 # cuántas tandas
+par.m.loops <- 10 # cuántas tandas
+par.m.size <- m/par.m.loops # cuántas simulaciones por núcleo
+
 
 #  Variables de datos
 area.sanitaria <- 'Coruña - Cee' # si se pone 'all' se eligen todas

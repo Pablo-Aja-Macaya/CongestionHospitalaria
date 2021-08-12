@@ -8,6 +8,7 @@ library(shinyjs)
 library(shinycssloaders)
 library(shinybusy)
 library(shinythemes)
+library(shinyWidgets)
 # Simulación
 library(Rlab)
 library(data.table)
@@ -138,7 +139,10 @@ ui <- fluidPage(
     theme = shinytheme("lumen"),
     shinyjs::useShinyjs(),
     tags$style(HTML('table.dataTable tr.selected td, table.dataTable td.selected {background-color: #008080 !important; color: white !important}')), # color de highlight de tabla
+    tags$style(".fa-quesion {color: black}"),
     add_busy_bar(color = "#008080"),
+    
+    
     title="Congestión Hospitalaria",
     titlePanel(h2(strong("Congestión Hospitalaria"), style = "color:#008080")),
 
@@ -157,7 +161,8 @@ ui <- fluidPage(
             ),
             hr(),
             # ---- Variables de simulación ----
-            h4(strong("Variables de simulación"), style = "color:#008080"),
+            h4(strong("Variables de simulación", circleButton("info_prueba",icon("question"),size='xs')) , style = "color:#008080"), 
+            uiOutput("HelpBox"),
             fluidRow(
                 column(6,
                        numericInput("num.cores", strong("Número de hilos:"),
@@ -179,12 +184,12 @@ ui <- fluidPage(
                 ),
             ),
             fluidRow(
-                column(6,
-                       numericInput("par.m.size", strong("Simulaciones por núcleo:"),
-                                    min = 0, max = 200, value = 10),                     
-                ),
-                column(6,
-                       numericInput("par.m.loops", strong("Tandas de simulación:"),
+                # column(6,
+                #        numericInput("par.m.size", strong("Simulaciones por núcleo:"),
+                #                     min = 0, max = 200, value = 10),                     
+                # ),
+                column(12,
+                       numericInput("par.m.loops", p(strong("Tandas de simulación:"), 'En cuántos bloques se dividen las simulaciones, los cuales se repartirán entre los hilos.'),
                                     min = 1, max = 20, value = 10),                     
                 ),
             ),
@@ -197,6 +202,7 @@ ui <- fluidPage(
             
             # ---- Probabilidades ----
             h4(strong("Probabilidades iniciales"), style = "color:#008080"),
+            p("Probabilidad de individuos hospitalizados de ingresar primero en hospital o en UCI."),
             fluidRow(
                 column(6,
                        sliderInput("prob.ICU", strong("Ingresar en UCI:"),
@@ -302,7 +308,13 @@ ui <- fluidPage(
 
 # Define server logic ----
 server <- function(input, output, session) {
-
+    output$HelpBox = renderUI({
+        if (input$info_prueba %% 2){
+            helpText("Here is some help for you" )
+        } else {
+            return()
+        }
+    })
     ##############################################################
     # ---- Casos y hospitalizados ----
     casos.filter <- reactive({
@@ -564,8 +576,8 @@ server <- function(input, output, session) {
         n.ind <- input$n.ind # individuos infectados
         n.time <- input$n.time # días (follow-up time)
         
-        par.m.size <- input$par.m.size # cuántas simulaciones por núcleo
         par.m.loops <- input$par.m.loops # cuántas tandas
+        par.m.size <- m/par.m.loops # cuántas simulaciones por núcleo
         
         ####################################
         # ---- Simulación condicional ---- #
@@ -1008,9 +1020,6 @@ server <- function(input, output, session) {
     output$prob.rc.real <- renderText(proporciones$prob.rc.real)
     output$prob.w <- renderText(proporciones$prob.w)
     output$prob.m <- renderText(proporciones$prob.m)
-
-    
-
 
     
 }

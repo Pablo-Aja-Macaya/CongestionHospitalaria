@@ -64,8 +64,8 @@ m <- 1000 # número de simulaciones
 n.ind <- 1000 # individuos simulados
 n.time <- 250 # número de días simulados
 
-par.m.size <- m/10 # cuántas simulaciones por núcleo
-par.m.loops <- par.m.size/10 # cuántas tandas
+par.m.loops <- 10 # cuántas tandas
+par.m.size <- m/par.m.loops # cuántas simulaciones por núcleo
 
 #  Variables de datos
 area.sanitaria <- 'Coruña - Cee' # c('Ourense - Verín - O Barco de Valdeorras','Coruña - Cee') # si se pone 'all' se eligen todas
