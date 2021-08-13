@@ -136,7 +136,7 @@ check.hosp.capacity <- function(hosp, icu, neto, t, cap.stats, time){
 # ---- APP ---- #
 #################
 ui <- fluidPage(
-    theme = shinytheme("lumen"),
+    # theme = shinytheme("lumen"),
     shinyjs::useShinyjs(),
     tags$style(HTML('table.dataTable tr.selected td, table.dataTable td.selected {background-color: #008080 !important; color: white !important}')), # color de highlight de tabla
     tags$style(".fa-quesion {color: black}"),
@@ -161,35 +161,29 @@ ui <- fluidPage(
             ),
             hr(),
             # ---- Variables de simulación ----
-            h4(strong("Variables de simulación", circleButton("info_prueba",icon("question"),size='xs')) , style = "color:#008080"), 
-            uiOutput("HelpBox"),
+            h4(strong("Variables de simulación", circleButton("helpbox_simulacion_button",icon("question"),size='xs')) , style = "color:#008080"), 
+            uiOutput("helpbox_simulacion"),
             fluidRow(
-                column(6,
-                       numericInput("num.cores", strong("Número de hilos:"),
-                                    min = 0, max = 6, value = 4),                     
-                ),
-                column(6,
+                column(4,
                        numericInput("m", strong("Simulaciones:"),
                                     min = 0, max = 2000, value = 100),                     
                 ),
-            ),
-            fluidRow(
-                column(6,
+                column(4,
                        numericInput("n.ind", strong("Individuos:"),
                                     min = 0, max = 1000, value = 1000),                  
                 ),
-                column(6,
+                column(4,
                        numericInput("n.time", strong("Días:"),
                                     min = 0, max = 300, value = 250),                  
                 ),
             ),
             fluidRow(
-                # column(6,
-                #        numericInput("par.m.size", strong("Simulaciones por núcleo:"),
-                #                     min = 0, max = 200, value = 10),                     
-                # ),
-                column(12,
-                       numericInput("par.m.loops", p(strong("Tandas de simulación:"), 'En cuántos bloques se dividen las simulaciones, los cuales se repartirán entre los hilos.'),
+                column(6,
+                       numericInput("num.cores", strong("Hilos:"),
+                                    min = 0, max = 6, value = 4),                     
+                ),
+                column(6,
+                       numericInput("par.m.loops", strong("Tandas de simulación:"),
                                     min = 1, max = 20, value = 10),                     
                 ),
             ),
@@ -201,8 +195,9 @@ ui <- fluidPage(
             hr(),
             
             # ---- Probabilidades ----
-            h4(strong("Probabilidades iniciales"), style = "color:#008080"),
-            p("Probabilidad de individuos hospitalizados de ingresar primero en hospital o en UCI."),
+            h4(strong("Probabilidades", circleButton("helpbox_probabilidades_button",icon("question"),size='xs')), style = "color:#008080"),
+            uiOutput("helpbox_probabilidades"),
+            h5(strong("Probabilidades iniciales"), style = "color:#008080"),
             fluidRow(
                 column(6,
                        sliderInput("prob.ICU", strong("Ingresar en UCI:"),
@@ -214,7 +209,7 @@ ui <- fluidPage(
                 ),
             ),
         
-            h4(strong("Probabilidades desde hospital"), style = "color:#008080"),
+            h5(strong("Probabilidades desde hospital"), style = "color:#008080"),
             fluidRow(
                 column(4,
                        sliderInput("prob.HW.death", strong("Muerte:"),
@@ -230,7 +225,7 @@ ui <- fluidPage(
                 ),
             ),
 
-            h4(strong("Probabilidades desde UCI"), style = "color:#008080"),
+            h5(strong("Probabilidades desde UCI"), style = "color:#008080"),
             fluidRow(
                 column(6,
                        sliderInput("prob.ICU.death", strong("Muerte:"),
@@ -245,7 +240,7 @@ ui <- fluidPage(
             hr(),
             
             # ---- Proporciones muestrales ----
-            h4(strong("Variables comunes"), style = "color:#008080"),
+            h4(strong("Variables calculadas a partir de hospitales"), style = "color:#008080"),
             dataTableOutput("table.prob.resumen"),
             numericInput('prob.w',
                          strong('Probabilidad de ser mujer (prob.w):'),
@@ -267,12 +262,13 @@ ui <- fluidPage(
             # ---- Tabsets de gráficas ----
             tabsetPanel(id='tabset_resultados', type = "tabs",
                         tabPanel("Análisis capacidad", 
-                                 h3(strong('Análisis de capacidad')),
+                                 h4(strong('Análisis de capacidad'),circleButton("helpbox_analisis_capacidad_button",icon("question"),size='xs')),
+                                 uiOutput("helpbox_analisis_capacidad"),
                                  plotOutput("analisis", height=800) %>% withSpinner()
                                  
                         ),
                         tabPanel("Simulación", 
-                                 h3(strong('Simulación')),
+                                 h4(strong('Simulación')),
                                  plotOutput("res.condicional") %>% withSpinner(),
                                  plotOutput("res.incondicional") %>% withSpinner()
                         )
@@ -308,9 +304,27 @@ ui <- fluidPage(
 
 # Define server logic ----
 server <- function(input, output, session) {
-    output$HelpBox = renderUI({
-        if (input$info_prueba %% 2){
-            helpText("Here is some help for you" )
+    output$helpbox_simulacion = renderUI({
+        if (input$helpbox_simulacion_button %% 2){
+            helpText("Estas variables guían el sistema de simulación. Se realizarán N simulaciones, cada una con J individuos y K días. Estas simulaciones se repartirán en bloques o tandas de simulación, las cuales serán paralelizadas entre los hilos seleccionados." )
+        } else {
+            return()
+        }
+    })
+    output$helpbox_probabilidades = renderUI({
+        if (input$helpbox_probabilidades_button %% 2){
+            helpText("El sistema simula el estado de cada paciente a lo largo de los días (Hospital, UCI, salida o muerte). 
+                     La transición entre cada estado viene dada por estas variables.")
+        } else {
+            return()
+        }
+    })
+    output$helpbox_analisis_capacidad = renderUI({
+        if (input$helpbox_analisis_capacidad_button %% 2){
+            helpText("El análisis indica para cada hospital y unidad (UCI, convencional...) la capacidad de esta (negro), 
+                     el número de camas ocupadas (COVID, rojo o no COVID, azul), 
+                     el área donde se mueve la cantidad de camas disponibles (morado) y 
+                     los días en los que se superaron algún límite (columnas rojas).")
         } else {
             return()
         }
