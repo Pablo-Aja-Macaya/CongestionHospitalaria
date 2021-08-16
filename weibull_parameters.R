@@ -251,35 +251,68 @@ get.mean.age <- function(interval.vector){
   return(age.interval)
 }
 
-# Prueba para acceder a datos
-get.weibull.lm <- function(res.list){
-  tmp <- as.data.frame(res.list)
-  names(tmp) <- names(res.list)
-  tmp <- as.data.frame(t(rbind(tmp, sexo=0)))
-  tmp$grupo <- rownames(tmp)
-  rownames(tmp) <- NULL
-  tmp$edad <- get.mean.age(tmp$grupo)
+get.full.weibull.pam <- function(res.list, sex){
+  # Esta función transforma los resultados de Weibull en un dataframe y rellena los nulos
+  # (grupos de edad-sexo que no aparecen en los datos) con el mínimo o máximo de la variable
   
-  m.scale <- lm(scale ~ edad + sexo, data = tmp)
-  m.shape <- lm(shape ~ edad + sexo, data = tmp)
+  fill.min.max <- function(df, c){
+    # Sustituir los nulos por el mínimo o máximo según si sus posiciones estén 
+    # debajo del mínimo o encima del máximo en el vector
+    # c = parámetro de weibull objetivo
+    
+    # Posiciones
+    min.index <- which.min(df[,c]) # índices del valor mínimo
+    max.index <- which.max(df[,c]) # índice del valor máximo
+    na.index <- which(is.na(df[,c])) # índices de los nulos
+    
+    # Sustitución
+    df[,c][na.index[na.index<min.index]] <- df[,c][min.index] # nulo antes del mínimo
+    df[,c][na.index[na.index>max.index]] <- df[,c][max.index] # nulo después del mínimo
+    df[,c][na.index[na.index>min.index & na.index<max.index]] <- mean(df[,c][c(min.index, max.index)]) # nulo entre mínimo y máximo
+    
+    return(df)
+  }
   
-  par(mfrow=c(1,2))
+  # Transformar datos a :
+  #       shape     scale sexo     grupo edad
+  # 1        NA        NA    0    [0,10)    5
+  # 2  1.271158  6.812643    0   [10,20)   15
+  res <- as.data.frame(res.list)
+  names(res) <- names(res.list)
+  res <- as.data.frame(t(rbind(res, sexo=NA)))
+  res$grupo <- rownames(res)
+  rownames(res) <- NULL
+  res$edad <- get.mean.age(res$grupo)
   
-  plot(tmp[,c('edad', 'scale')], main='Scale')
-  abline(m.scale)  
+  # Rellenar nulos con máximos o mínimos según la posición de los nulos (edad del grupo)
+  df <- fill.min.max(res, 'shape')
+  df <- fill.min.max(df, 'scale')
   
-  plot(tmp[,c('edad', 'shape')], main='Shape')
-  abline(m.shape)  
+  # Rellenar el parámetro de sexo
+  df$sexo <- sex
   
-  par(mfrow=c(1,1))
-  
-  return(m.scale)
-  
+  return(df)
 }
-m <- get.weibull.lm(weibull.HW.ICU.women)
-get.weibull.lm(weibull.ICU.death.women)
-get.weibull.lm(weibull.HW.disc.women)
 
-get.weibull.lm(weibull.HW.ICU.men)
-get.weibull.lm(weibull.ICU.death.men)
-get.weibull.lm(weibull.HW.disc.men)
+weibull.HW.ICU.women <- get.full.weibull.pam(weibull.HW.ICU.women, 'M')
+weibull.HW.ICU.men <- get.full.weibull.pam(weibull.HW.ICU.men, 'H')
+
+weibull.ICU.death.women <- get.full.weibull.pam(weibull.ICU.death.women, 'M')
+weibull.ICU.death.men <- get.full.weibull.pam(weibull.ICU.death.men, 'H')
+
+weibull.HW.disc.women <- get.full.weibull.pam(weibull.HW.disc.women, 'M')
+weibull.HW.disc.men <- get.full.weibull.pam(weibull.HW.disc.men, 'H')
+
+
+par(mfrow=c(1,2))
+tmp1 <- weibull.HW.disc.women
+tmp2 <- weibull.HW.disc.men
+plot(tmp1$edad, tmp1$scale, col='red')
+points(tmp2$edad, tmp2$scale, col='blue')
+plot(tmp1$edad, tmp1$shape, col='red')
+points(tmp2$edad, tmp2$shape, col='blue')
+
+tmp <- rbind(weibull.HW.disc.men, weibull.HW.disc.women)
+model <- lm(scale ~ sexo + edad, tmp)
+predict(model, newdata=data.frame(sexo='H', edad=60))
+
