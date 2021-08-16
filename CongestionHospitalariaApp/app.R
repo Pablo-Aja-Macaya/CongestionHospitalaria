@@ -152,13 +152,20 @@ ui <- fluidPage(
         sidebarPanel(
             # ---- Variables comunes ----
             h4(strong("Variables comunes"), style = "color:#008080"),
-            selectInput("area.sanitaria", 
-                        strong("Área sanitaria:"), 
-                        choices = c("Coruña - Cee", "Ferrol", "Lugo - A Mariña - Monforte de Lemos", 
-                                    "Ourense - Verín - O Barco de Valdeorras", "Pontevedra - O Salnés", 
+            selectInput("area.sanitaria",
+                        strong("Área sanitaria:"),
+                        choices = c("Coruña - Cee", "Ferrol", "Lugo - A Mariña - Monforte de Lemos",
+                                    "Ourense - Verín - O Barco de Valdeorras", "Pontevedra - O Salnés",
                                     "Santiago de Compostela - Barbanza", "Vigo"),
                         selected = "Coruña - Cee"
             ),
+            # selectInput("checkGroup", 
+            #                    strong("Hospitales"), 
+            #                    choices = list("Todos" = 2, 
+            #                                   "De referencia" = 1, 
+            #                                   "No de referencia" = 0),
+            #                    selected = 1),
+            # materialSwitch(inputId = "xxx", label = strong("Variables automáticas:"), status = "primary"),
             hr(),
             # ---- Variables de simulación ----
             h4(strong("Variables de simulación", circleButton("helpbox_simulacion_button",icon("question"),size='xs')) , style = "color:#008080"), 
@@ -195,7 +202,7 @@ ui <- fluidPage(
             hr(),
             
             # ---- Probabilidades ----
-            h4(strong("Probabilidades", circleButton("helpbox_probabilidades_button",icon("question"),size='xs')), style = "color:#008080"),
+            h4(strong("Probabilidades", circleButton("helpbox_probabilidades_button",icon("question"),size='xs')),style = "color:#008080"),
             uiOutput("helpbox_probabilidades"),
             h5(strong("Probabilidades iniciales"), style = "color:#008080"),
             fluidRow(
