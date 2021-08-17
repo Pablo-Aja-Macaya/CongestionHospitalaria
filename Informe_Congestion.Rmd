@@ -51,9 +51,9 @@ library(glue)
 
 # Variables
 
-Aquí se eligen variables importantes para la simulación, como el número de hilos, simulaciones, individuos y días. Además, se selecciona el área sanitaria, poniendo 'all' si se quieren todas. Así mismo, se cargan los datos de capacidad asistencial y de los casos de COVID-19.
+Aquí se eligen variables importantes para la simulación, como el número de simulaciones, individuos y días. Además, se selecciona el área sanitaria, poniendo 'all' si se quieren todas. Así mismo, se cargan los datos de capacidad asistencial y de los casos de COVID-19.
 
-El número de hilos (num.cores) elegidos depende del ordenador donde se vaya a ejecutar y de su RAM. Cuantos más se hilos se permitan más RAM ocupará la simulación. En principio 16 GB de RAM deberían ser suficientes para 10 hilos, mientras que con 6 hilos ocupa entre 5 y 8 GB.
+Para acelerar el proceso se paraleliza el sistema, dividiendo las m simulaciones en varias tandas (par.m.loops) y repartiendo estas entre los hilos seleccionados (par.m.size). Por ejemplo, si `m = 1000` y `par.m.loops = 10` se repartirán las simulaciones en grupos de `par.m.size = 100` entre los hilos. El número de hilos (num.cores) elegidos depende del ordenador donde se vaya a ejecutar y de su RAM. Cuantos más se hilos se permitan más RAM ocupará la simulación. En principio 16 GB de RAM deberían ser suficientes para 10 hilos, mientras que con 6 hilos ocupa entre 5 y 8 GB.
 
 ```{r message=FALSE}
 # Variables de simulación
@@ -68,7 +68,8 @@ par.m.loops <- 10 # cuántas tandas
 par.m.size <- m/par.m.loops # cuántas simulaciones por núcleo
 
 #  Variables de datos
-area.sanitaria <- 'Coruña - Cee' # c('Ourense - Verín - O Barco de Valdeorras','Coruña - Cee') # si se pone 'all' se eligen todas
+area.sanitaria <- "Ferrol" # c('Ourense - Verín - O Barco de Valdeorras', 'Coruña - Cee') # si se pone 'all' se eligen todas
+hosp.ref <- 1 # qué hospitales se seleccionan (1: referencias, 0: no referencias, 'all': todos)
 areas.hospitales <- data.frame(read_csv("datos/areas_hospitales_correspondencia.csv")) # correspondencia entre hospital y área
 casos.org <- data.frame(read_csv("datos/sivies_agreg_area_sanitaria.csv")) # casos base
 capacidad <- data.frame(read_csv("datos/capacidadasistencial.csv", locale = locale(encoding = "ISO-8859-1"))) # capacidad asistencial
@@ -96,7 +97,7 @@ knitr::read_chunk('analisis_capacidad.R')
 
 # Proporción de edades y sexos
 
-En este apartado se usa información agregada de SIVIES para obtener las probabilidades de infección y hospitalización para cada grupo de edad por sexo. Primero, se filtran los datos por área sanitaria, y se separan los grupos que están infectados (CASE) de los que han sido hospitalizados (HOS). Una vez hecho esto se obtienen las proporciones de hospitalización e infección de cada grupo (edad+sexo). Estas probabilidades guiarán la generación de individuos y su tasa de infección/hospitalización en la simulación.
+En este apartado se usa información agregada de SIVIES para obtener las probabilidades de infección y hospitalización para cada grupo de edad por sexo. Primero, se filtran los datos por área sanitaria, y se separan los grupos que están infectados (CASE+HOS) de los que han sido hospitalizados (HOS). Una vez hecho esto se obtienen las proporciones de hospitalización e infección de cada grupo (edad+sexo). Estas probabilidades guiarán la generación de individuos y su tasa de infección/hospitalización en la simulación.
 
 ```{r, Proporción de edades y sexos, echo=TRUE}
 ```
@@ -128,7 +129,7 @@ En este paso se añade el cálculo del total de camas ocupadas al dataframe.
 
 ## Capacidad en cada hospital
 
-Se obtienen los hospitales y unidades presentes en los datos filtrados, ordenados alfabéticamente, y se realiza un bucle para cada hospital. En este bucle se calculan, unidad a unidad, datos como la mediana, el percentil 90 o el percentil 10 del número de camas totales a lo largo de la pandemia. El resultado para cada unidad es una gráfica con un histograma y otra con la evolución de las camas a lo largo de la pandemia. La segunda gráfica puede contener columnas verticales rojizas, que indicarán si en algún momento el número de ingresados totales sobrepasó alguna de las medidas (mediana o percentiles). Cuanto más rojizas mayor habrá sido el nivel (sobrepasar el percentil 10 < sobrepasar la mediana < sobrepsar el percentil 90).
+Se obtienen los hospitales y unidades presentes en los datos filtrados, ordenados alfabéticamente, y se realiza un bucle para cada hospital. En este bucle se calculan, unidad a unidad, datos como la mediana, el percentil 90 o el percentil 10 del número de camas totales a lo largo de la pandemia. El resultado para cada unidad es una gráfica con un histograma y otra con la evolución de las camas a lo largo de la pandemia. La segunda gráfica puede contener columnas verticales rojizas, que indicarán si en algún momento el número de ingresados totales sobrepasó alguna de las medidas (mediana o percentiles). Cuanto más rojizas mayor habrá sido el nivel (sobrepasar el percentil 10 \< sobrepasar la mediana \< sobrepasar el percentil 90).
 
 Por último, se obtiene en la lista "hospital.capacity.stats" las estadísticas resumidas para cada hospital.
 
@@ -144,7 +145,7 @@ Esta lista resume las características del número de camas a lo largo de la pan
 
 ## Resultados del conjunto de hospitales
 
-Para dar una visión general del conjunto de hospitales seleccionado, se resumen sus datos en lo que sería el sumatorio de cada característica por unidad y hospital. Es decir, el sumatorio de las medianas para hospitalización convencional de todos los hospitales, por ejemplo.
+Para dar una visión general del conjunto de hospitales seleccionado, se resumen sus datos en lo que sería el sumatorio de cada característica por unidad y hospital. Por ejemplo, el sumatorio de las medianas para hospitalización convencional de todos los hospitales.
 
 ```{r, Juntar datos de hospitales para encontrar stats del conjunto, echo=TRUE}
 ```
@@ -165,13 +166,13 @@ Las probabilidades de transición entre cada estado se calculan a partir de la b
 
 En este apartado se realizan dos tipos de simulaciones, una en la que se tiene en cuenta la edad y sexo de los individuos para los parámetros de Weibull (condicional), y otra en la que no (no condicional). Con esto se intenta ver si los parámetros alteran los resultados.
 
-La idea es hacer j simulaciones, cada una con i individuos y k días. Para ello, se crea una matriz state, la cual se compone de esas 3 dimensiones (j, i, k), y varias matrices que almacenan las edades, sexos, días de infección, probabilidad de infección, estados finales de los individuos. Además, se crean varias para almacenar el número de ingresados en UCI, hospital, el número de muertos...
+La idea es hacer j simulaciones, cada una con i individuos y k días. Para ello, se crea una matriz state, la cual se compone de esas 3 dimensiones (j, i, k), y varias matrices que almacenan las edades, sexos, días de infección, probabilidad de infección y estados finales de los individuos. Además, se crean varias para almacenar el número de ingresados en UCI, hospital, el número de muertos...
 
-Originalmente, estas simulaciones se realizaban en secuencial, usando un sólo hilo. El tiempo no era prohibitivo, 1 minuto para 1000 simulaciones, pero las matrices se almacenaban por completo, pudiendo provocar problemas de RAM. Por ambos motivos, se paraleliza la simulación, de tal manera que con 6 hilos se tardan 18 segundos para 1000 simulaciones, y la cantidad de RAM usada es menor porque cada hilo usa las matrices comentadas con menos simulaciones (Ej: en vez de 1000 simulaciones cada hilo hace matrices de 100) y cuando el hilo acaba se desechan las que no son necesarias, como state.
+Originalmente, estas simulaciones se realizaban en secuencial, usando un sólo hilo. El tiempo no era prohibitivo, 1 minuto para 1000 simulaciones, pero las matrices se almacenaban por completo, pudiendo provocar problemas de RAM. Por ambos motivos, se paraleliza la simulación, de tal manera que con 6 hilos se tardan 18 segundos para 1000 simulaciones en la simulación condicional, y la cantidad de RAM usada es menor porque cada hilo usa las matrices comentadas con menos simulaciones (Ej: en vez de matrices state de 1000x1000x250 son 100x1000x250 en cada hilo) y cuando el hilo acaba se desechan las que no son necesarias, como state.
 
 ## Simulación paralelizada condicional
 
-En el sistema condicional los parámetros de Weibull se calculan teniendo en cuenta el sexo y la edad.
+En el sistema condicional los parámetros de Weibull y las probabilidades de ingreso hospitalario se calculan teniendo en cuenta el sexo y la edad.
 
 Para los pasos iniciales de cada simulación se hace lo siguiente:
 
@@ -189,17 +190,20 @@ Una vez se han completado los pasos iniciales, se simulan las transiciones de es
 
 Esto se repite para cada paciente hospitalizado, calculando el estado inicial. Una vez hecho esto, se simulan el resto de estados para los pacientes que siguen en 'HOS' o 'UCI' (ni se han muerto ni se les ha dado el alta). Se simula hasta que ningún paciente quede en el hospital o en UCI.
 
-&nbsp;
-<details><summary style="background-color: #f4f6f6 "><a>Mostrar código de simulación</a></summary>
+ 
+
+<details>
+
+<summary style="background-color: #f4f6f6 "><a>Mostrar código de simulación</a></summary>
 
 ```{r Simulación paralelizada condicional, echo=TRUE}
 ```
 
 </details>
-&nbsp;
 
-Al final de todo este proceso se calcula el número de personas en UCI, hospitalizadas, muertas o dadas de alta por día. Estas son las matrices resultado. Como cada hilo produce una lista de matrices, es necesario juntarlas una a una mediante la función 'get.sim.results'.  
+ 
 
+Al final de todo este proceso se calcula el número de personas en UCI, hospitalizadas, muertas o dadas de alta por día. Estas son las matrices resultado. Como cada hilo produce una lista de matrices, es necesario juntarlas una a una mediante la función 'get.sim.results'.
 
 ```{r, Resultados condicionales, echo=TRUE}
 ```
@@ -207,7 +211,6 @@ Al final de todo este proceso se calcula el número de personas en UCI, hospital
 ## Simulación paralelizada no condicional
 
 En el sistema no condicional los parámetros de Weibull se calculan sin tener en cuenta el sexo y la edad. Además, tampoco se tienen en cuenta para calcular la probabilidad de ser hospitalizado.
-
 
 Para los pasos iniciales de cada simulación se hace lo siguiente:
 
@@ -219,7 +222,6 @@ Para los pasos iniciales de cada simulación se hace lo siguiente:
 -   Desde el día 0 al día de infección para cada individuo se sustituyen los NAs por '0' en state. Tras esto, se sustituye el día de infección por 'I' en state.
 -   El siguiente paso es calcular la probabilidad de que cada individuo vaya a ingresar en el hospital, lo cual se hace con una distribución uniforme comparada con el valor de prob.rc en cada paciente.
 
-
 Una vez se han completado los pasos iniciales, se simulan las transiciones de estado de cada individuo hospitalizado:
 
 -   Se calcula el tiempo desde la infección hasta la hospitalización, poniendo 'I' en state hasta el día antes de la hospitalización.
@@ -227,21 +229,23 @@ Una vez se han completado los pasos iniciales, se simulan las transiciones de es
 
 Esto se repite para cada paciente hospitalizado, calculando el estado inicial. Una vez hecho esto, se simulan el resto de estados para los pacientes que siguen en 'HOS' o 'UCI' (ni se han muerto ni se les ha dado el alta). Se simula hasta que ningún paciente quede en el hospital o en UCI.
 
+ 
 
-&nbsp;
-<details><summary style="background-color: #f4f6f6 "><a>Mostrar código de simulación</a></summary>
+<details>
+
+<summary style="background-color: #f4f6f6 "><a>Mostrar código de simulación</a></summary>
 
 ```{r, Simulación paralelizada no condicional, echo=TRUE}
 ```
 
 </details>
-&nbsp;
 
-Al final de todo este proceso se calcula el número de personas en UCI, hospitalizadas, muertas o dadas de alta por día. Estas son las matrices resultado. Como cada hilo produce una lista de matrices, es necesario juntarlas una a una mediante la función 'get.sim.results'.  
+ 
+
+Al final de todo este proceso se calcula el número de personas en UCI, hospitalizadas, muertas o dadas de alta por día. Estas son las matrices resultado. Como cada hilo produce una lista de matrices, es necesario juntarlas una a una mediante la función 'get.sim.results'.
 
 ```{r, Resultados no condicionales, echo=TRUE}
 ```
-
 
 # Examen de días por encima del límite
 

@@ -10,7 +10,8 @@ library(glue)
 library(dplyr)
 
 #  ---- Variables de datos ----
-area.sanitaria <- 'all' # si se pone 'all' se eligen todas
+area.sanitaria <- 'Ferrol' # c('Ourense - Verín - O Barco de Valdeorras', 'Coruña - Cee') # si se pone 'all' se eligen todas
+hosp.ref <- 0 # qué hospitales se seleccionan (1: referencias, 0: no referencias, 'all': todos)
 areas.hospitales <- data.frame(read_csv("datos/areas_hospitales_correspondencia.csv"))
 capacidad <- data.frame(read_csv("datos/capacidadasistencial.csv", locale = locale(encoding = "ISO-8859-1"))) # capacidad asistencial
 names(capacidad) <- tolower(names(capacidad))
@@ -48,7 +49,18 @@ filter.cap <- function(df,a){
 capacidad <- filter.cap(capacidad, area.sanitaria)
 
 # Filtrar por referencia
-capacidad <- subset(capacidad, referencia==1)
+filter.ref <- function(df, ref){
+  if (ref=='all'){ # todos los hospitales
+    return(df)
+  } else if (ref==1){ # hospitales de referencia
+    return(subset(df, referencia==1))
+  } else if (ref==0){ # hospitales de no referencia
+    return(subset(df, referencia==0))
+  }
+}
+capacidad <- filter.ref(capacidad, hosp.ref)
+
+create.table(capacidad, 'Capacidades')
 
 # ---- Calculos previos ----
 # Añadir total de ocupadas
@@ -95,26 +107,30 @@ for (h in hospitales){
     title(sub=paste('Percentil 10:', percentiles[['10%']]), adj=1, line=3, font=2,cex.sub = 0.75)
     title(sub=paste('Percentil 90:', percentiles[['90%']]), adj=1, line=4, font=2,cex.sub = 0.75)
     
-    # Plot de número de camas a lo largo de la pandemia
+    # -- Plot de número de camas a lo largo de la pandemia --
     plot(total_camas ~ fecha_envio, datos, ylim=c(0,max(tot, na.rm=T)+max(tot, na.rm=T)*0.25), xaxt = "n", type = "l", main=glue('{h} \n({u})'), xlab=NA)
+    # Columnas rojas (días donde se sobrepasa una de las estadísticas)
+    # Cuanto más rojizas más gravedad
     for (d in min.sobrepasado){
-      rect(d-1,0-20,
-           d+1,max(tot, na.rm=T)+50,
+      rect(d-1, 0-20,
+           d+1, max(tot, na.rm=T)+80,
            col= rgb(1,0,0,alpha=0.05), lwd=0)      
     }
     for (d in max.sobrepasado){
-      rect(d-1,0-20,
-           d+1,max(tot, na.rm=T)+50,
+      rect(d-1, 0-20,
+           d+1, max(tot, na.rm=T)+80,
            col= rgb(1,0,0,alpha=0.3), lwd=0)      
     }
     for (d in median.sobrepasado){
-      rect(d-1,0-20,
-           d+1,max(tot, na.rm=T)+20,
+      rect(d-1, 0-20,
+           d+1, max(tot, na.rm=T)+80,
            col= rgb(1,0,0,alpha=0.15), lwd=0)      
     }
+    # Área entre percentil10 y percentil90
     rect(fechas[1]-20,percentiles[['10%']],
          fechas[length(fechas)]+20,percentiles[['90%']],
          col= rgb(0,0,1,alpha=0.05), lwd=0)
+    # Datos de ocupación
     lines(ocupadas_no_covid19 ~ fecha_envio, datos, type="l",lty=1, lwd=1, col='blue')
     lines(ocupadas_covid19 ~ fecha_envio, datos, type="l",lty=1, lwd=1, col='red')
     lines(total_ocupadas ~ fecha_envio, datos, type="l",lty=1, lwd=1, col='green')
@@ -125,9 +141,7 @@ for (h in hospitales){
     axis.Date(1, at=seq(min(fechas), max(fechas), length.out=10), format='%b %Y', las=2, cex.axis=0.8)    
     legend('topright',legend = c('Total camas','Total ocupadas','Ocupadas por COVID','Ocupadas por no COVID','Mediana total camas'), 
            col = c("black","green", "red", "blue", "darkorchid"), lwd = 2, xpd = TRUE, cex = 0.5, bty = 'n')
-    # legend("topright", legend = c('total_camas','COVID19','NO COVID19'),
-    #        col = c('black','red','blue'), lty=c(1,1,1), pch = c(NA,NA,NA), bty = "n")
-    # 
+
     # Meter resultados en la lista
     hospital.capacity.stats[[h]][[u]] <- c(mediana, percentiles[['10%']], percentiles[['90%']])
   }

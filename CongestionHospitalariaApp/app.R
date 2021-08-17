@@ -87,7 +87,16 @@ filter.cap <- function(df,a){
     }
     return(cap)
 }
-
+# Filtrar por referencia
+filter.ref <- function(df, ref){
+    if (ref=='all'){ # todos los hospitales
+        return(df)
+    } else if (ref==1){ # hospitales de referencia
+        return(subset(df, referencia==1))
+    } else if (ref==0){ # hospitales de no referencia
+        return(subset(df, referencia==0))
+    }
+}
 # ---- Examen de días por encima del límite ----
 check.hosp.capacity <- function(hosp, icu, neto, t, cap.stats, time){
     par(mfrow=c(1,1))
@@ -159,13 +168,13 @@ ui <- fluidPage(
                                     "Santiago de Compostela - Barbanza", "Vigo"),
                         selected = "Coruña - Cee"
             ),
-            # selectInput("checkGroup", 
-            #                    strong("Hospitales"), 
-            #                    choices = list("Todos" = 2, 
-            #                                   "De referencia" = 1, 
-            #                                   "No de referencia" = 0),
-            #                    selected = 1),
-            # materialSwitch(inputId = "xxx", label = strong("Variables automáticas:"), status = "primary"),
+            selectInput("hosp.ref",
+                               strong("Hospitales"),
+                               choices = list("Todos" = 'all',
+                                              "De referencia" = 1,
+                                              "No de referencia" = 0),
+                               selected = 1),
+            materialSwitch(inputId = "xxx", label = strong("Variables automáticas:"), status = "primary"),
             hr(),
             # ---- Variables de simulación ----
             h4(strong("Variables de simulación", circleButton("helpbox_simulacion_button",icon("question"),size='xs')) , style = "color:#008080"), 
@@ -426,7 +435,7 @@ server <- function(input, output, session) {
         # Filtrar por el área sanitaria que se quiera
         capacidad <- filter.cap(capacidad.org, input$area.sanitaria)
         # Filtrar por referencia
-        capacidad <- subset(capacidad, referencia==1)
+        capacidad <- filter.ref(capacidad, input$hosp.ref)
         # Añadir total de ocupadas
         capacidad$total_ocupadas <- capacidad$ocupadas_covid19 + capacidad$ocupadas_no_covid19
         capacidad
@@ -476,17 +485,17 @@ server <- function(input, output, session) {
                 plot(total_camas ~ fecha_envio, datos, ylim=c(0,max(tot, na.rm=T)+max(tot, na.rm=T)*0.25), xaxt = "n", type = "l", main=glue('{h} \n({u})'), xlab=NA)
                 for (d in min.sobrepasado){
                     rect(d-1,0-20,
-                         d+1,max(tot, na.rm=T)+50,
+                         d+1,max(tot, na.rm=T)+80,
                          col= rgb(1,0,0,alpha=0.05), lwd=0)      
                 }
                 for (d in max.sobrepasado){
                     rect(d-1,0-20,
-                         d+1,max(tot, na.rm=T)+50,
+                         d+1,max(tot, na.rm=T)+80,
                          col= rgb(1,0,0,alpha=0.3), lwd=0)      
                 }
                 for (d in median.sobrepasado){
                     rect(d-1,0-20,
-                         d+1,max(tot, na.rm=T)+20,
+                         d+1,max(tot, na.rm=T)+80,
                          col= rgb(1,0,0,alpha=0.15), lwd=0)      
                 }
                 rect(fechas[1]-20,percentiles[['10%']],

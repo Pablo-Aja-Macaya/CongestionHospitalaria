@@ -605,6 +605,7 @@ check.hosp.capacity <- function(hosp, icu, neto, t){
   plot(NA, xlim=c(0,n.time), ylim=c(0,max(max(sim.tot.hosp)+20)), xlab="Días", ylab="Casos", main=t)
   
   add.range <- function(capacity.stats, unidad, col){
+    # Esta función añade el área de cada unidad hospitalaria, desde p10 a p90 a una gráfica
     mediana <- capacity.stats['mediana',unidad]
     p10 <- capacity.stats['percentil10',unidad]
     p90 <- capacity.stats['percentil90',unidad]
@@ -624,11 +625,12 @@ check.hosp.capacity <- function(hosp, icu, neto, t){
   lines(sim.tot.hosp, type="l",lty=1, lwd=2, col='orange')
   lines(neto,lty=1, lwd=2, col='green')
   
-  # legend("topright", legend = c("nHOS", "nICU",'nHOS+nICU','Cambio neto (in-out)','Capacidad convencional', 'Capacidad media UCI', 'Capacidad UCI (Resp)', 'Capacidad UCI (No resp)'),
-  #        col = c('pink','red','orange','green','blue','red','black','orange'), lty=c(1,1,1,1,2,2,2,2), pch = c(NA,NA,NA,NA,NA,NA,NA), bty = "n")
-  # 
+  legend("topright", legend = c("nHOS", "nICU",'nHOS+nICU','Cambio neto (in-out)'),
+         col = c('pink','red','orange','green'), lty=c(1,1,1,1,2), pch = c(NA,NA,NA,NA), bty = "n")
+  
   title(sub=paste('Días sobrepasados en HOSP: ', dias.sobrepasados.convencional), adj=1, line=2, font=2,cex.sub = 0.75)
   title(sub=paste('Días sobrepasados en UCI: ', dias.sobrepasados.uci), adj=1, line=3, font=2,cex.sub = 0.75)
+  
   # Por cuánto se sobrepasa
   # plot(sim.tot.hosp[sim.tot.hosp>=cap]-cap, ylab='Pacientes sin cama', xlab='Días')
 }
