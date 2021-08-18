@@ -133,13 +133,12 @@ datos.seleccionados <- datos.seleccionados %>% mutate(age.group = cut(age, break
 # ------------- Weibull ---------------- #
 ##########################################
 get.calculo.ICU.HW <- function(df){
-  # Obtener matriz con filas de n.case duplicados
+  # Obtener matriz con filas de n.case duplicados (varias estancias)
   n.case.duplicados <- df[duplicated(df$n.case),]$n.case
   duplicados <- subset(df, n.case%in%n.case.duplicados)
   duplicados <- duplicados[order(duplicados$n.case, duplicados$date.admission.hosp_HOS),]
   
   # Para cada id único, mirar sus filas y ver si la fecha de discharge_UCI es menor o igual que la de admission.hosp en la siguiente estancia
-  count.ICU.HW <- c()
   time.ICU.HW <- c()
   for (id in n.case.duplicados){
     sel <- subset(duplicados, n.case==id)
@@ -147,17 +146,18 @@ get.calculo.ICU.HW <- function(df){
     for (r in 1:rows){
       if (r!=rows){
         # Indicador de si la fecha de salidad de UCI es anterior a la siguiente entrada en HOSP
-        condition <- ymd(sel[r,'date.discharge_UCI']) <= ymd(sel[r+1,'date.admission.hosp_HOS'])
-        count.ICU.HW <- c(count.ICU.HW, condition)
+        ultima.UCI <- ymd(sel[r,'date.discharge_UCI'])
+        siguiente.HOS <- ymd(sel[r+1,'date.admission.hosp_HOS'])
+        condition <-  ultima.UCI <= siguiente.HOS
         if (!is.na(condition) & condition==TRUE){
           # Tiempo en ICU antes de HW (necesario para Weibull)
-          time.ICU.HW <- c(time.ICU.HW, ymd(sel[r+1,'date.admission.hosp_HOS'])-ymd(sel[r,'date.discharge_UCI'])+1)
+          # (fecha de admisión en hosp de la siguiente estancia menos la fecha de discharge de UCI de la estancia actual)
+          time.ICU.HW <- c(time.ICU.HW, siguiente.HOS - ultima.UCI+1)
         }
       }
     }
   }
-  prob.ICU.HW <- sum(count.ICU.HW, na.rm=TRUE)/nrow(datos_sergas) ## QUIZAS MAL
-  return (list(time.ICU.HW=time.ICU.HW, prob.ICU.HW=prob.ICU.HW))
+  return (list(time.ICU.HW=time.ICU.HW))
 }
 
 get.weibull.parameters <- function(vect, smoothness=1.5, extra.tittle=''){
@@ -194,7 +194,27 @@ get.conditional.weibull.parameters <- function(df, age.levels, s, target.column)
   return (result.list)
 }
 
-
+get.conditional.ICU.HW <- function(df, age.levels, s){
+  result.list = list()
+  par(mfrow=c(2,2))
+  for (l in age.levels){
+    target <- subset(df, age.group==l & sex==s)
+    if (length(target) != 0){
+      p <- get.calculo.ICU.HW(target)$time.ICU.HW
+      if (is.vector(p)){
+        p <- get.weibull.parameters(p)
+        result.list[[l]] <- p
+      } else {
+        result.list[[l]] <- c(NA,NA)
+      }
+      
+    } else {
+      result.list[[l]] <- c(NA,NA)
+    }
+  }  
+  par(mfrow=c(1,1))
+  return (result.list)  
+}
 
 # ---- Parámetros Weibull no condicionales ----
 
@@ -240,8 +260,12 @@ weibull.HW.disc.women <- get.conditional.weibull.parameters(tmp, levels(datos.se
 weibull.HW.disc.men <- get.conditional.weibull.parameters(tmp, levels(datos.seleccionados$age.group), 'Hombre', 'time.HOSP')
 
 # Parámetros con tiempo que pasan entre UCI y HOS
-### FALTA ###
+tmp <- subset(datos.seleccionados) # REVISAR
+weibull.ICU.HW.women <- get.conditional.ICU.HW(tmp, levels(datos.seleccionados$age.group), 'Mujer')
+weibull.ICU.HW.men <- get.conditional.ICU.HW(tmp, levels(datos.seleccionados$age.group), 'Hombre')
 
+
+#################################################################################
 
 get.mean.age <- function(interval.vector){
   tmp <- gsub("\\[|)", "", interval.vector)
@@ -303,10 +327,13 @@ weibull.ICU.death.men <- get.full.weibull.pam(weibull.ICU.death.men, 'H')
 weibull.HW.disc.women <- get.full.weibull.pam(weibull.HW.disc.women, 'M')
 weibull.HW.disc.men <- get.full.weibull.pam(weibull.HW.disc.men, 'H')
 
+weibull.ICU.HW.women <- get.full.weibull.pam(weibull.ICU.HW.women, 'M')
+weibull.ICU.HW.men <- get.full.weibull.pam(weibull.ICU.HW.men, 'H')
+
 
 par(mfrow=c(1,2))
-tmp1 <- weibull.HW.disc.women
-tmp2 <- weibull.HW.disc.men
+tmp1 <- weibull.ICU.HW.women
+tmp2 <- weibull.ICU.HW.men
 plot(tmp1$edad, tmp1$scale, col='red')
 points(tmp2$edad, tmp2$scale, col='blue')
 plot(tmp1$edad, tmp1$shape, col='red')
