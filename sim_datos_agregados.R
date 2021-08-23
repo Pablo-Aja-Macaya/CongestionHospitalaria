@@ -33,7 +33,8 @@ par.m.size <- m/par.m.loops # cuántas simulaciones por núcleo
 
 
 #  Variables de datos
-area.sanitaria <- 'Coruña - Cee' # si se pone 'all' se eligen todas
+area.sanitaria <- 'all' # si se pone 'all' se eligen todas
+hosp.ref <- 1 # qué hospitales se seleccionan (1: referencias, 0: no referencias, 'all': todos)
 areas.hospitales <- data.frame(read_csv("datos/areas_hospitales_correspondencia.csv")) # correspondencia entre hospital y área
 casos.org <- data.frame(read_csv("datos/sivies_agreg_area_sanitaria.csv")) # casos base
 
@@ -154,9 +155,9 @@ source('analisis_capacidad.R')
 
 # -- Paciente es admitido en hospital -- #
 # Probabilidad de ir directamente a UCI
-prob.ICU <- sum(subset(hospitalizados, ingreso_uci=='Si' & primera_entrada=='UCI')$cantidad, na.rm=T) / sum(subset(hospitalizados, primera_entrada!='')$cantidad, na.rm=T)
+prob.ICU <- sum(subset(hospitalizados, ingreso_uci=='Si' & primera_entrada=='UCI')$cantidad, na.rm=T) / sum(subset(hospitalizados, primera_entrada!='NULL' | primera_entrada!='')$cantidad, na.rm=T)
 # Probabilidad de quedarse en hospital ward (HW) primero
-prob.HW <- sum(subset(hospitalizados, ingreso_hospitalario=='Si'  & primera_entrada=='HOSP')$cantidad, na.rm=T) / sum(subset(hospitalizados, primera_entrada!='')$cantidad, na.rm=T)
+prob.HW <- sum(subset(hospitalizados, ingreso_hospitalario=='Si'  & primera_entrada=='HOSP')$cantidad, na.rm=T) / sum(subset(hospitalizados, primera_entrada!='NULL' | primera_entrada!='')$cantidad, na.rm=T)
 
 
 # -- Opciones en HW -- #
@@ -174,7 +175,7 @@ prob.ICU.death <- mean(subset(hospitalizados, ingreso_uci=='Si')$proporcion_muer
 
 # Probabilidad de ser transferido a HW después de UCI
 ### PROBLEMA: no se puede ser muy preciso con este campo por falta de datos
-prob.ICU.HW <- sum(subset(hospitalizados, ingreso_hospitalario=='Si' & ingreso_uci=='Si' & primera_entrada!='HOSP')$cantidad, na.rm=T)/ sum(subset(hospitalizados, primera_entrada!='')$cantidad, na.rm=T)
+prob.ICU.HW <- sum(subset(hospitalizados, ingreso_hospitalario=='Si' & ingreso_uci=='Si' & primera_entrada!='HOSP')$cantidad, na.rm=T)/ sum(subset(hospitalizados, primera_entrada!='NULL' | primera_entrada!='')$cantidad, na.rm=T)
 
 # Sacar por pantalla las probabilidades
 list(prob.ICU=prob.ICU, prob.HW=prob.HW, prob.HW.death=prob.HW.death, prob.HW.ICU=prob.HW.ICU, prob.HW.disc=prob.HW.disc, prob.ICU.death=prob.ICU.death, prob.ICU.HW=prob.ICU.HW)
