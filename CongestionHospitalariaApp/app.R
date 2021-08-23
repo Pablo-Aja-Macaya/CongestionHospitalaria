@@ -173,7 +173,7 @@ ui <- fluidPage(
                                choices = list("Todos" = 'all',
                                               "De referencia" = 1,
                                               "No de referencia" = 0),
-                               selected = 1),
+                               selected = 'all'),
             materialSwitch(inputId = "xxx", label = strong("Variables automáticas:"), status = "primary"),
             hr(),
             # ---- Variables de simulación ----
@@ -280,7 +280,7 @@ ui <- fluidPage(
                         tabPanel("Análisis capacidad", 
                                  h4(strong('Análisis de capacidad'),circleButton("helpbox_analisis_capacidad_button",icon("question"),size='xs')),
                                  uiOutput("helpbox_analisis_capacidad"),
-                                 plotOutput("analisis", height=800) %>% withSpinner()
+                                 plotOutput("analisis", height=4000) %>% withSpinner()
                                  
                         ),
                         tabPanel("Simulación", 
@@ -295,25 +295,25 @@ ui <- fluidPage(
     ),
     # ---- Tablas ----
     
-    fluidRow(
-        column(
-            
-            tabsetPanel(type = "tabs",
-                        tabPanel("Capacidades",
-                                 br(),
-                                 dataTableOutput("table.capacidades")                             
-                        ),
-                        tabPanel("Casos",
-                                 br(),
-                                 dataTableOutput("table.casos") 
-                        ),
-                        tabPanel("Hospitalizados",
-                                 br(),
-                                 dataTableOutput("table.hospitalizados") 
-                        )
-            ),
-        width = 12  )
-    )
+    # fluidRow(
+    #     column(
+    #         
+    #         tabsetPanel(type = "tabs",
+    #                     tabPanel("Capacidades",
+    #                              br(),
+    #                              dataTableOutput("table.capacidades")                             
+    #                     ),
+    #                     tabPanel("Casos",
+    #                              br(),
+    #                              dataTableOutput("table.casos") 
+    #                     ),
+    #                     tabPanel("Hospitalizados",
+    #                              br(),
+    #                              dataTableOutput("table.hospitalizados") 
+    #                     )
+    #         ),
+    #     width = 12  )
+    # )
 
 )
 
@@ -451,7 +451,7 @@ server <- function(input, output, session) {
         # Lista para guardar dataframes de cada hospital con la unidad y cuentas
         hospital.capacity.stats <- list()
         
-        par(mfrow=c(4,2))
+        par(mfrow=c(length(hospitales)*4,2))
         for (h in hospitales){
             # Inicialización de dataframe de unidades*medidas para el hospital
             hospital.capacity.stats[[h]] <- data.frame(matrix(ncol = length(unidades), nrow = 3))
@@ -520,7 +520,7 @@ server <- function(input, output, session) {
         }
         par(mfrow=c(1,1))
         capacidades$hospital.capacity.stats <- hospital.capacity.stats
-        
+
         # ---- Juntar datos de hospitales para encontrar stats del conjunto ----
         merge.hospital.data <- function(hosp.data, parameter){
             # Esta función coge una lista de dataframes, cada uno de un hospital, en donde
@@ -541,7 +541,7 @@ server <- function(input, output, session) {
         area.capacity.stats <- rbind(df_median, df_p10, df_p90)
         capacidades$area.capacity.stats <- area.capacity.stats
     })
-    output$analisis <- renderPlot(analisis.capacidad())
+    output$analisis <- renderPlot(analisis.capacidad(), height = 3000)
     
     ##############################################################
     # ---- Probabilidades de simulación ----
@@ -612,10 +612,10 @@ server <- function(input, output, session) {
         ####################################
         # ---- Simulación condicional ---- #
         ####################################
+        execution.time.cond <- system.time({
         # Cada bucle paralelo crea una lista de resultados (n.HOS, n.ICU...)
         # Al final se tiene una lista de longitud=par.m.loops, cada una con una lista de resultados
         set.seed(123)
-        
         res <- foreach (par.m=1:par.m.loops, .errorhandling="pass") %dopar% {
             # Se inicializan matrices vacías necesarias para la simulación
             # Dependiendo de cada una pueden tener dos dimensiones (simulacion*individuo)
@@ -788,6 +788,7 @@ server <- function(input, output, session) {
         
         stopImplicitCluster()
         
+        
         # ----- Resultados condicionales ---- 
         # El sistema produce resultados por hilo y es necesario juntarlos
         # Se obtienen matrices de dimensiones simulaciones*pacientes*dias
@@ -816,10 +817,11 @@ server <- function(input, output, session) {
         resultados$cambio.neto.cond <- nHOS+nICU-(nDischarge+nDead+nH.Dead+nICU.Dead)
         resultados$nHOS <- nHOS
         resultados$nICU <- nICU
-        
+        })
         #######################################
         # ---- Simulación no condicional ---- #
         #######################################
+        execution.time.inc <- system.time({
         # Cálculo previo de Weibull 
         scale.ICU.death <- 15.5 
         scale.ICU.HW <- 16.3 
@@ -1019,7 +1021,9 @@ server <- function(input, output, session) {
         resultados$cambio.neto.inc <- nHOS.inc+nICU.inc-(nDischarge.inc+nDead+nH.Dead.inc+nICU.inc.Dead)
         resultados$nHOS.inc <- nHOS.inc
         resultados$nICU.inc <- nICU.inc
+        })
         
+        print(execution.time.inc+execution.time.cond)
     }, priority=3)
     
     plot.condicional.res <- reactive({
@@ -1041,6 +1045,7 @@ server <- function(input, output, session) {
         output$res.incondicional <- renderPlot(plot.incondicional.res())
     })
     
+
     #############################################################
     # ---- Outputs ----
     output$table.capacidades <- renderDataTable(capacidad.filter(), options = list(scrollX = TRUE, pageLength = 5))
