@@ -219,28 +219,18 @@ get.conditional.ICU.HW <- function(df, age.levels, s){
 # ---- Parámetros Weibull no condicionales ----
 
 # Parámetros con tiempo que pasan en HOSP antes de ir a UCI
-weibull.HW.ICU <- get.weibull.parameters(subset(datos.seleccionados, !is.na(time.HOSP) & !is.na(time.ICU))$time.HOSP)
-shape.HW.ICU <- weibull.HW.ICU[1]
-scale.HW.ICU <- weibull.HW.ICU[2]
+weibull.HW.ICU.inc <- get.weibull.parameters(subset(datos.seleccionados, !is.na(time.HOSP) & !is.na(time.ICU))$time.HOSP)
 
 # Parámetros con tiempo que pasan en UCI antes de morir
-weibull.ICU.death <- get.weibull.parameters(subset(datos.seleccionados, death.while.inside==TRUE & !is.na(time.ICU))$time.ICU)
-shape.ICU.death <- weibull.ICU.death[1]
-scale.ICU.death <- weibull.ICU.death[2]
+weibull.ICU.death.inc <- get.weibull.parameters(subset(datos.seleccionados, death.while.inside==TRUE & !is.na(time.ICU))$time.ICU)
 
 # Parámetros con tiempo que pasan en HW antes del discharge
-weibull.HW.disc <- get.weibull.parameters(subset(datos.seleccionados, death.while.inside==FALSE & !is.na(time.HOSP))$time.HOSP)
-shape.HW.disc <- weibull.HW.disc[1]
-scale.HW.disc <- weibull.HW.disc[2]
+weibull.HW.disc.inc <- get.weibull.parameters(subset(datos.seleccionados, death.while.inside==FALSE & !is.na(time.HOSP))$time.HOSP)
 
 # Parámetros con tiempo que pasan entre UCI y HOS
-weibull.ICU.HW <- get.weibull.parameters(get.calculo.ICU.HW(datos.seleccionados)$time.ICU.HW)
-shape.ICU.HW <- weibull.ICU.HW[1]
-scale.ICU.HW <- weibull.ICU.HW[2]
+weibull.ICU.HW.inc <- get.weibull.parameters(get.calculo.ICU.HW(datos.seleccionados)$time.ICU.HW)
 
 
-data.frame(HW.ICU=c(shape.HW.ICU,scale.HW.ICU), ICU.death=c(shape.ICU.death,scale.ICU.death),
-           HW.disc=c(shape.HW.disc,scale.HW.disc), ICU.HW=c(shape.ICU.HW,scale.ICU.HW))
 
 # ---- Parámetros Weibull condicionales ----
 
@@ -282,7 +272,7 @@ get.full.weibull.pam <- function(res.list, sex){
   fill.min.max <- function(df, c){
     # Sustituir los nulos por el mínimo o máximo según si sus posiciones estén 
     # debajo del mínimo o encima del máximo en el vector
-    # c = parámetro de weibull objetivo
+    # c: parámetro de weibull objetivo
     
     # Posiciones
     min.index <- which.min(df[,c]) # índices del valor mínimo
@@ -318,28 +308,38 @@ get.full.weibull.pam <- function(res.list, sex){
   return(df)
 }
 
-weibull.HW.ICU.women <- get.full.weibull.pam(weibull.HW.ICU.women, 'M')
-weibull.HW.ICU.men <- get.full.weibull.pam(weibull.HW.ICU.men, 'H')
+get.joined.full.weibull.pam <- function(res.list.women, res.list.men){
+  # Esta función usa "get.full.weibull.pam" para transformar los resultados de Weibull 
+  # en un dataframe y rellenar los nulos (grupos de edad-sexo que no aparecen en los datos) 
+  # con el mínimo o máximo de la variable
+  # Después, junta las dos matrices resultantes (hombres y mujeres) en una
+  res.women <- get.full.weibull.pam(res.list.women, 'M')
+  res.men <- get.full.weibull.pam(res.list.men, 'H')
+  res <- rbind(res.women, res.men)
+  return(res)
+}
 
-weibull.ICU.death.women <- get.full.weibull.pam(weibull.ICU.death.women, 'M')
-weibull.ICU.death.men <- get.full.weibull.pam(weibull.ICU.death.men, 'H')
-
-weibull.HW.disc.women <- get.full.weibull.pam(weibull.HW.disc.women, 'M')
-weibull.HW.disc.men <- get.full.weibull.pam(weibull.HW.disc.men, 'H')
-
-weibull.ICU.HW.women <- get.full.weibull.pam(weibull.ICU.HW.women, 'M')
-weibull.ICU.HW.men <- get.full.weibull.pam(weibull.ICU.HW.men, 'H')
+weibull.HW.ICU.cond <- get.joined.full.weibull.pam(weibull.HW.ICU.women, weibull.HW.ICU.men)
+weibull.ICU.death.cond <- get.joined.full.weibull.pam(weibull.ICU.death.women, weibull.ICU.death.men)
+weibull.HW.disc.cond <- get.joined.full.weibull.pam(weibull.HW.disc.women, weibull.HW.disc.men)
+weibull.ICU.HW.cond <- get.joined.full.weibull.pam(weibull.ICU.HW.women, weibull.ICU.HW.men)
 
 
-par(mfrow=c(1,2))
-tmp1 <- weibull.ICU.HW.women
-tmp2 <- weibull.ICU.HW.men
-plot(tmp1$edad, tmp1$scale, col='red')
-points(tmp2$edad, tmp2$scale, col='blue')
-plot(tmp1$edad, tmp1$shape, col='red')
-points(tmp2$edad, tmp2$shape, col='blue')
+# Guardar variables
+save(weibull.HW.ICU.cond, weibull.ICU.death.cond, weibull.HW.disc.cond, weibull.ICU.HW.cond,
+     weibull.HW.ICU.inc, weibull.ICU.death.inc, weibull.HW.disc.inc, weibull.ICU.HW.inc, 
+     file='datos/full_weibull.Rdata')
 
-tmp <- rbind(weibull.HW.disc.men, weibull.HW.disc.women)
-model <- lm(scale ~ sexo + edad, tmp)
-predict(model, newdata=data.frame(sexo='H', edad=60))
+
+# par(mfrow=c(1,2))
+# tmp1 <- weibull.ICU.HW.women
+# tmp2 <- weibull.ICU.HW.men
+# plot(tmp1$edad, tmp1$scale, col='red')
+# points(tmp2$edad, tmp2$scale, col='blue')
+# plot(tmp1$edad, tmp1$shape, col='red')
+# points(tmp2$edad, tmp2$shape, col='blue')
+# 
+# tmp <- rbind(weibull.HW.disc.men, weibull.HW.disc.women)
+# model <- lm(scale ~ sexo + edad, tmp)
+# predict(model, newdata=data.frame(sexo='H', edad=60))
 

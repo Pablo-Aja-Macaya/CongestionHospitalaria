@@ -157,14 +157,16 @@ source('analisis_capacidad.R')
 # Probabilidad de ir directamente a UCI
 prob.ICU <- sum(subset(hospitalizados, ingreso_uci=='Si' & primera_entrada=='UCI')$cantidad, na.rm=T) / sum(subset(hospitalizados, primera_entrada!='NULL' | primera_entrada!='')$cantidad, na.rm=T)
 # Probabilidad de quedarse en hospital ward (HW) primero
-prob.HW <- sum(subset(hospitalizados, ingreso_hospitalario=='Si'  & primera_entrada=='HOSP')$cantidad, na.rm=T) / sum(subset(hospitalizados, primera_entrada!='NULL' | primera_entrada!='')$cantidad, na.rm=T)
+prob.HW <- sum(subset(hospitalizados, ingreso_hospitalario=='Si' & primera_entrada=='HOSP')$cantidad, na.rm=T) / sum(subset(hospitalizados, primera_entrada!='NULL' | primera_entrada!='')$cantidad, na.rm=T)
 
 
 # -- Opciones en HW -- #
 # Probabilidad de morir antes de pasar a UCI
 prob.HW.death <- mean(subset(hospitalizados, ingreso_hospitalario=='Si' & ingreso_uci=='No')$proporcion_muertos, na.rm=T)
+
 # Probabilidad de entrar en UCI
 prob.HW.ICU <- sum(subset(hospitalizados, ingreso_hospitalario=='Si' & ingreso_uci=='Si')$cantidad, na.rm=T) / sum(hospitalizados$cantidad, na.rm=T)
+
 # Probabilidad de irse de HW sin entrar en UCI (Esto no es del todo preciso, incluye a los que se mueren en HW)
 prob.HW.disc <- sum(subset(hospitalizados, ingreso_hospitalario=='Si' & ingreso_uci=='No')$cantidad, na.rm=T) / sum(hospitalizados$cantidad, na.rm=T)
 
@@ -175,7 +177,7 @@ prob.ICU.death <- mean(subset(hospitalizados, ingreso_uci=='Si')$proporcion_muer
 
 # Probabilidad de ser transferido a HW después de UCI
 ### PROBLEMA: no se puede ser muy preciso con este campo por falta de datos
-prob.ICU.HW <- sum(subset(hospitalizados, ingreso_hospitalario=='Si' & ingreso_uci=='Si' & primera_entrada!='HOSP')$cantidad, na.rm=T)/ sum(subset(hospitalizados, primera_entrada!='NULL' | primera_entrada!='')$cantidad, na.rm=T)
+prob.ICU.HW <- sum(subset(hospitalizados, ingreso_hospitalario=='Si' & ingreso_uci=='Si')$cantidad, na.rm=T)/ sum(subset(hospitalizados)$cantidad, na.rm=T)
 
 # Sacar por pantalla las probabilidades
 list(prob.ICU=prob.ICU, prob.HW=prob.HW, prob.HW.death=prob.HW.death, prob.HW.ICU=prob.HW.ICU, prob.HW.disc=prob.HW.disc, prob.ICU.death=prob.ICU.death, prob.ICU.HW=prob.ICU.HW)
@@ -183,9 +185,23 @@ list(prob.ICU=prob.ICU, prob.HW=prob.HW, prob.HW.death=prob.HW.death, prob.HW.IC
 
 # ------------- Weibull ---------------- 
 
-# Queda decidir de dónde se sacan los datos para esto 
-# (en sim_datos_individuales.R hay una implementación para datos antiguos individualizados)
-# Por ahora se usa la fórmula calculada a mano
+load("datos/full_weibull.Rdata")
+
+# Ejemplos de datos incondicionales
+weibull.HW.disc.inc
+
+# Ejemplos de datos condicionales
+weibull.HW.disc.cond
+
+get.pams <- function(df, age, sex){
+  # Encontrar fila más cercana a una edad por sexo
+  # (Sólo para datos condicionales)
+  matrix.by.sex <- subset(df, sexo==sex)
+  sel.row <- matrix.by.sex[which.min(abs(matrix.by.sex$edad - age)),]
+  return(sel.row)
+}
+
+# get.pams(weibull.HW.ICU.cond, 50, 'H')
 
 
 
