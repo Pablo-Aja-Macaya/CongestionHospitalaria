@@ -313,8 +313,8 @@ get.joined.full.weibull.pam <- function(res.list.women, res.list.men){
   # en un dataframe y rellenar los nulos (grupos de edad-sexo que no aparecen en los datos) 
   # con el mínimo o máximo de la variable
   # Después, junta las dos matrices resultantes (hombres y mujeres) en una
-  res.women <- get.full.weibull.pam(res.list.women, 'M')
-  res.men <- get.full.weibull.pam(res.list.men, 'H')
+  res.women <- get.full.weibull.pam(res.list.women, 1)
+  res.men <- get.full.weibull.pam(res.list.men, 0)
   res <- rbind(res.women, res.men)
   return(res)
 }
@@ -338,8 +338,8 @@ save(weibull.HW.ICU.cond, weibull.ICU.death.cond, weibull.HW.disc.cond, weibull.
 # points(tmp2$edad, tmp2$scale, col='blue')
 # plot(tmp1$edad, tmp1$shape, col='red')
 # points(tmp2$edad, tmp2$shape, col='blue')
-# 
-# tmp <- rbind(weibull.HW.disc.men, weibull.HW.disc.women)
-# model <- lm(scale ~ sexo + edad, tmp)
-# predict(model, newdata=data.frame(sexo='H', edad=60))
+
+tmp <- weibull.ICU.HW.cond
+model <- lm(scale ~ sexo + edad, tmp)
+predict(model, newdata=data.frame(sexo=1, edad=60))
 
