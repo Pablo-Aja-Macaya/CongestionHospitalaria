@@ -225,6 +225,16 @@ ui <- fluidPage(
                                     min = 1, max = 20, value = 10),                     
                 ),
             ),
+            fluidRow(
+                column(6,
+                       numericInput("inf.time.avg", strong("Día medio donde ocurre la infección:"),
+                                    min = 100, max = 200, value = 100),                     
+                ),
+                column(6,
+                       numericInput("inf.time.sd", strong("Desviación del día medio de infección:"),
+                                    min = 1, max = 25, value = 10),                     
+                ),
+            ),
             # ---- Botón de simulación ----
             fluidRow(
                 column(12,actionButton("ejecutar_simulacion","Ejecutar simulación", icon("paper-plane"), 
@@ -631,6 +641,9 @@ server <- function(input, output, session) {
         par.m.loops <- input$par.m.loops # cuántas tandas
         par.m.size <- m/par.m.loops # cuántas simulaciones por núcleo
         
+        inf.time.avg <- input$inf.time.avg
+        inf.time.sd <- input$inf.time.sd
+        
         ####################################
         # ---- Simulación condicional ---- #
         ####################################
@@ -677,7 +690,7 @@ server <- function(input, output, session) {
                 #-----------------------------------------------------
                 # -- Día en el que se infecta (distribución normal) --
                 # ----------------------------------------------------
-                inf.time[j,] <- rnorm(n=n.ind, mean=60, sd=10)
+                inf.time[j,] <- rnorm(n=n.ind, mean=inf.time.avg, sd=inf.time.sd)
                 
                 # Definición del día de infección en state
                 # Los días previos a la infección se guardan como "0", y el día de infección como "I"
@@ -706,7 +719,7 @@ server <- function(input, output, session) {
                     state[j,i,(ceiling(ind.inf.time)+1):ceiling((ind.inf.time + t.inf.until.hosp-1))] = "I"
                     
                     # -- Parámetros Weibull según edad y sexo --
-                    if(input$modo.weibull=='manual'){
+                    if(modo.weibull=='manual'){
                         # Modo: fórmula manual
                         # Scale
                         scale.ICU.death <- 15.5 * ( (100 - abs(ind.age- 60) - 10*ind.gender) / 62 )
@@ -718,7 +731,7 @@ server <- function(input, output, session) {
                         shape.ICU.HW <- 1.8
                         shape.HW.disc <- 2.6
                         shape.HW.ICU <- 1.6        
-                    } else if (input$modo.weibull=='automatico') {
+                    } else if (modo.weibull=='automatico') {
                         # Modo: calculados por "eweibull" (pasa de 18 segundos a 36)
                         # Filas objetivo
                         weibull.ICU.death <- get.pams(weibull.ICU.death.cond, ind.age, ind.gender)
@@ -939,7 +952,7 @@ server <- function(input, output, session) {
                 #-----------------------------------------------------
                 # -- Día en el que se infecta (distribución normal) --
                 # ----------------------------------------------------
-                inf.time[j,] <-rnorm(n=n.ind, mean=60, sd=10)
+                inf.time[j,] <-rnorm(n=n.ind, mean=inf.time.avg, sd=inf.time.sd)
                 
                 # Definición del día de infección en state
                 # Los días previos a la infección se guardan como "0", y el día de infección como "I"

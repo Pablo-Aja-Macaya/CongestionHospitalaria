@@ -34,8 +34,10 @@ par.m.size <- m/par.m.loops # cuántas simulaciones por núcleo
 
 #  Variables de datos
 modo.weibull <- 'manual' # 'automatico', 'manual' (manual/formula)
-area.sanitaria <- 'all' # si se pone 'all' se eligen todas
-hosp.ref <- 1 # qué hospitales se seleccionan (1: referencias, 0: no referencias, 'all': todos)
+inf.time.avg <- 100 # dia medio donde ocurre la infección
+inf.time.sd <- 20 # desviación estándard del día donde ocurre la infección
+area.sanitaria <- "Coruña - Cee" # si se pone 'all' se eligen todas
+hosp.ref <- 'todos' # qué hospitales se seleccionan (1: referencias, 0: no referencias, 'all': todos)
 areas.hospitales <- data.frame(read_csv("datos/areas_hospitales_correspondencia.csv")) # correspondencia entre hospital y área
 casos.org <- data.frame(read_csv("datos/sivies_agreg_area_sanitaria.csv")) # casos base
 
@@ -253,7 +255,7 @@ res <- foreach (par.m=1:par.m.loops, .errorhandling="pass") %dopar% {
     #-----------------------------------------------------
     # -- Día en el que se infecta (distribución normal) --
     # ----------------------------------------------------
-    inf.time[j,] <- rnorm(n=n.ind, mean=60, sd=10)
+    inf.time[j,] <- rnorm(n=n.ind, mean=inf.time.avg, sd=inf.time.sd)
     
     # Definición del día de infección en state
     # Los días previos a la infección se guardan como "0", y el día de infección como "I"
@@ -414,7 +416,6 @@ res <- foreach (par.m=1:par.m.loops, .errorhandling="pass") %dopar% {
   # Esta línea saca fuera del bucle paralelo la información
   list(n.HOS=n.HOS,n.ICU=n.ICU,n.H.Dead=n.H.Dead,n.Discharge=n.Discharge,n.ICU.Dead=n.ICU.Dead,n.Dead=n.Dead)
 }
-
 stopImplicitCluster()
 })
 
@@ -512,7 +513,7 @@ res <- foreach (par.m=1:par.m.loops, .errorhandling="pas") %dopar% {
     #-----------------------------------------------------
     # -- Día en el que se infecta (distribución normal) --
     # ----------------------------------------------------
-    inf.time[j,] <-rnorm(n=n.ind, mean=60, sd=10)
+    inf.time[j,] <-rnorm(n=n.ind, mean=inf.time.avg, sd=inf.time.sd)
     
     # Definición del día de infección en state
     # Los días previos a la infección se guardan como "0", y el día de infección como "I"
