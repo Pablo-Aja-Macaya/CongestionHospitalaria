@@ -24,7 +24,7 @@ library(glue)
 num.cores <- 6 # número de hilos usados en simulación
 registerDoParallel(num.cores) 
 
-m <- 1000 # simulaciones
+m <- 500 # simulaciones
 n.ind <- 1000 # individuos infectados
 n.time <- 250 # días (follow-up time)
 
@@ -33,6 +33,7 @@ par.m.size <- m/par.m.loops # cuántas simulaciones por núcleo
 
 
 #  Variables de datos
+modo.weibull <- 'manual' # 'automatico', 'manual' (manual/formula)
 area.sanitaria <- 'all' # si se pone 'all' se eligen todas
 hosp.ref <- 1 # qué hospitales se seleccionan (1: referencias, 0: no referencias, 'all': todos)
 areas.hospitales <- data.frame(read_csv("datos/areas_hospitales_correspondencia.csv")) # correspondencia entre hospital y área
@@ -184,7 +185,11 @@ list(prob.ICU=prob.ICU, prob.HW=prob.HW, prob.HW.death=prob.HW.death, prob.HW.IC
 
 
 # ------------- Weibull ---------------- 
+# Dos maneras de calcular Weibull:
+# - Con fórmulas / manualmente
+# - Automáticamente con "eweibull" a partir de datos reales
 
+# -- Con eweibull --
 load("datos/full_weibull.Rdata")
 
 # Ejemplos de datos incondicionales
@@ -201,16 +206,13 @@ get.pams <- function(df, age, sex){
   return(sel.row)
 }
 
-# get.pams(weibull.HW.ICU.cond, 50, 'H')
-
-
-
 # ---- Simulación paralelizada condicional ----
 
 # Cada bucle paralelo crea una lista de resultados (n.HOS, n.ICU...)
 # Al final se tiene una lista de longitud=par.m.loops, cada una con una lista de resultados
 set.seed(123)
 
+system.time({
 res <- foreach (par.m=1:par.m.loops, .errorhandling="pass") %dopar% {
   # Se inicializan matrices vacías necesarias para la simulación
   # Dependiendo de cada una pueden tener dos dimensiones (simulacion*individuo)
@@ -270,15 +272,47 @@ res <- foreach (par.m=1:par.m.loops, .errorhandling="pass") %dopar% {
     # -- Para cada individuo seleccionado (que tiene la enfermedad y es hospitalizado) --
     for (i in ind.H){
       # -- Tiempo desde infección hasta el día de hospitalización --
+      # Variables repetidas
+      ind.age <- age[j,i]
+      ind.gender <- gender[j,i]
+      ind.inf.time <- inf.time[j,i]
+      
       # Cada día en state desde el día de infección hasta el día de hospitalización se define como "I"
-      t.inf.until.hosp <- rnorm(n=1, mean=12-0.05*age[j,i], sd=1)
-      state[j,i,(ceiling(inf.time[j,i])+1):ceiling((inf.time[j,i] + t.inf.until.hosp-1))] = "I"
+      t.inf.until.hosp <- rnorm(n=1, mean=12-0.05*ind.age, sd=1)
+      state[j,i,(ceiling(ind.inf.time)+1):ceiling((ind.inf.time + t.inf.until.hosp-1))] = "I"
       
       # -- Parámetros Weibull según edad y sexo --
-      scale.ICU.death <- 15.5 * ( (100 - abs(age[j,i]- 60) - 10*gender[j,i]) / 62)
-      scale.ICU.HW <- 16.3 * ( (100 - abs(age[j,i]- 60) - 10*gender[j,i])/62)
-      scale.HW.disc <- 8.4 * ((60 + age[j,i]-10*gender[j,i])/100) 
-      scale.HW.ICU <- 4.2
+      if(modo.weibull=='manual'){
+        # Modo: fórmula manual
+        # Scale
+        scale.ICU.death <- 15.5 * ( (100 - abs(ind.age- 60) - 10*ind.gender) / 62 )
+        scale.ICU.HW <- 16.3 * ( (100 - abs(ind.age- 60) - 10*ind.gender) / 62 )
+        scale.HW.disc <- 8.4 * ( (60 + ind.age-10*ind.gender)/100 )
+        scale.HW.ICU <- 4.2
+        # Shape
+        shape.ICU.death <- 1.4
+        shape.ICU.HW <- 1.8
+        shape.HW.disc <- 2.6
+        shape.HW.ICU <- 1.6        
+      } else if (modo.weibull=='automatico') {
+        # Modo: calculados por "eweibull" (pasa de 18 segundos a 36)
+        # Filas objetivo
+        weibull.ICU.death <- get.pams(weibull.ICU.death.cond, ind.age, ind.gender)
+        weibull.ICU.HW <- get.pams(weibull.ICU.HW.cond, ind.age, ind.gender)
+        weibull.HW.disc <- get.pams(weibull.HW.disc.cond, ind.age, ind.gender)
+        weibull.HW.ICU <- get.pams(weibull.HW.ICU.cond, ind.age, ind.gender)
+        # Scale
+        scale.ICU.death <- weibull.ICU.death$scale
+        scale.ICU.HW <- weibull.ICU.HW$scale
+        scale.HW.disc <- weibull.HW.disc$scale
+        scale.HW.ICU <- weibull.HW.ICU$scale
+        # Shape
+        shape.ICU.death <- weibull.ICU.death$shape
+        shape.ICU.HW <- weibull.ICU.HW$shape
+        shape.HW.disc <- weibull.HW.disc$shape
+        shape.HW.ICU <- weibull.HW.ICU$shape        
+      }
+
       
       #-------------------------------------------------
       # -- Simulación del primer estado del individuo --
@@ -290,29 +324,29 @@ res <- foreach (par.m=1:par.m.loops, .errorhandling="pass") %dopar% {
         v2 <- runif(1)
         if (v2 <= prob.HW.death) {# Patient dies in HW
           time.HW.death <- rexp(1, 0.1)# Of those admitted in hospital ward, the time to death 
-          state[j,i,ceiling(inf.time[j,i] + t.inf.until.hosp) : ceiling(inf.time[j,i] + t.inf.until.hosp + time.HW.death)-1] = "H"
-          state[j,i,ceiling(inf.time[j,i] + t.inf.until.hosp + time.HW.death)] = "H.Dead"
+          state[j,i,ceiling(ind.inf.time + t.inf.until.hosp) : ceiling(ind.inf.time + t.inf.until.hosp + time.HW.death)-1] = "H"
+          state[j,i,ceiling(ind.inf.time + t.inf.until.hosp + time.HW.death)] = "H.Dead"
           final.state[j,i] = "Dead"
         } else if ( (v2 > prob.HW.death) && (v2 <= prob.HW.death+prob.HW.ICU) ) {# Patient goes to ICU
-          time.HW.ICU <- rweibull(1, shape=1.6, scale=scale.HW.ICU)# Time since hospital ward admission to ICU
-          state[j,i,ceiling(inf.time[j,i] + t.inf.until.hosp) : ceiling(inf.time[j,i] + t.inf.until.hosp + time.HW.ICU)] = "H"
+          time.HW.ICU <- rweibull(1, shape=shape.HW.ICU, scale=scale.HW.ICU)# Time since hospital ward admission to ICU
+          state[j,i,ceiling(ind.inf.time + t.inf.until.hosp) : ceiling(ind.inf.time + t.inf.until.hosp + time.HW.ICU)] = "H"
           final.state[j,i] = "ICU"
         } else {# Patient discharged
-          time.HW.disc <- rweibull(1, shape=2.6, scale=scale.HW.disc )# Time since hospital ward admission to discharge is
-          state[j,i,ceiling(inf.time[j,i] + t.inf.until.hosp) : ceiling(inf.time[j,i] + t.inf.until.hosp + time.HW.disc)-1] = "H"
-          state[j,i,ceiling(inf.time[j,i] + t.inf.until.hosp + time.HW.disc)] = "H.Discharge"
+          time.HW.disc <- rweibull(1, shape=shape.HW.disc, scale=scale.HW.disc )# Time since hospital ward admission to discharge is
+          state[j,i,ceiling(ind.inf.time + t.inf.until.hosp) : ceiling(ind.inf.time + t.inf.until.hosp + time.HW.disc)-1] = "H"
+          state[j,i,ceiling(ind.inf.time + t.inf.until.hosp + time.HW.disc)] = "H.Discharge"
           final.state[j,i] = "Discharge"}
       } else {
         # Paciente entra en UCI
         v3 <- runif(1)
         if (v3 <= prob.ICU.death) {# Patient dies in ICU
-          time.ICU.death <- rweibull(1, shape=1.4, scale=scale.ICU.death)# Time from admission in ICU to death
-          state[j,i,ceiling(inf.time[j,i] + t.inf.until.hosp) : ceiling(inf.time[j,i] + t.inf.until.hosp + time.ICU.death)-1] = "ICU"
-          state[j,i,ceiling(inf.time[j,i] + t.inf.until.hosp + time.ICU.death)] = "ICU.Dead"
+          time.ICU.death <- rweibull(1, shape=shape.ICU.death, scale=scale.ICU.death)# Time from admission in ICU to death
+          state[j,i,ceiling(ind.inf.time + t.inf.until.hosp) : ceiling(ind.inf.time + t.inf.until.hosp + time.ICU.death)-1] = "ICU"
+          state[j,i,ceiling(ind.inf.time + t.inf.until.hosp + time.ICU.death)] = "ICU.Dead"
           final.state[j,i] = "Dead"
         } else {# Patient goes to hospital ward
-          time.ICU.HW <- rweibull(1, shape=1.8, scale=scale.ICU.HW ) # Time since admission in ICU till return to ward
-          state[j,i,ceiling(inf.time[j,i] + t.inf.until.hosp) : ceiling(inf.time[j,i] + t.inf.until.hosp + time.ICU.HW)] = "ICU"
+          time.ICU.HW <- rweibull(1, shape=shape.ICU.HW, scale=scale.ICU.HW ) # Time since admission in ICU till return to ward
+          state[j,i,ceiling(ind.inf.time + t.inf.until.hosp) : ceiling(ind.inf.time + t.inf.until.hosp + time.ICU.HW)] = "ICU"
           final.state[j,i] = "HOS"
         }}
       
@@ -341,11 +375,11 @@ res <- foreach (par.m=1:par.m.loops, .errorhandling="pass") %dopar% {
             state[j, i, pmin(n.time, ceiling(i.final+time.HW.death))] = "H.Dead"
             final.state[j,i] = "Dead"
           } else if ( (v2 > prob.HW.death) && (v2 <= prob.HW.death+prob.HW.ICU) ) {# Patient goes to ICU
-            time.HW.ICU <- rweibull(1, shape=1.6, scale=scale.HW.ICU)# Time since hospital ward admission to ICU
+            time.HW.ICU <- rweibull(1, shape=shape.HW.ICU, scale=scale.HW.ICU)# Time since hospital ward admission to ICU
             state[j,i,i.final: pmin(n.time, ceiling(i.final+time.HW.ICU))] = "H"
             final.state[j,i] = "ICU"
           } else {# Patient discharged
-            time.HW.disc <- rweibull(1, shape=2.6, scale=scale.HW.disc )# Time since hospital ward admission to discharge is
+            time.HW.disc <- rweibull(1, shape=shape.HW.disc, scale=scale.HW.disc )# Time since hospital ward admission to discharge is
             state[j,i,i.final: pmin(n.time, ceiling(i.final+time.HW.disc)-1)] = "H"
             state[j,i,pmin(n.time, ceiling(i.final+time.HW.disc))] = "H.Discharge"
             final.state[j,i] = "Discharge"}
@@ -353,12 +387,12 @@ res <- foreach (par.m=1:par.m.loops, .errorhandling="pass") %dopar% {
           # Si el estado final actual es UCI
           v3 <- runif(1)
           if (v3 <= prob.ICU.death) {# Patient dies in ICU
-            time.ICU.death <- rweibull(1, shape=1.4, scale=scale.ICU.death)# Time from admission in ICU to death
+            time.ICU.death <- rweibull(1, shape=shape.ICU.death, scale=scale.ICU.death)# Time from admission in ICU to death
             state[j,i,i.final : pmin(n.time, ceiling(i.final+time.ICU.death)-1)] = "ICU"
             state[j,i,pmin(n.time, ceiling(i.final+time.ICU.death))] = "ICU.Dead"
             final.state[j,i] = "Dead"
           } else {# Patient goes to hospital ward
-            time.ICU.HW <- rweibull(1, shape=1.8, scale=scale.ICU.HW ) # Time since admission in ICU till return to ward
+            time.ICU.HW <- rweibull(1, shape=shape.ICU.HW, scale=scale.ICU.HW ) # Time since admission in ICU till return to ward
             state[j,i,i.final :pmin(n.time, ceiling(i.final+time.ICU.HW))] = "ICU"
             final.state[j,i] = "HOS"
           }}
@@ -382,7 +416,7 @@ res <- foreach (par.m=1:par.m.loops, .errorhandling="pass") %dopar% {
 }
 
 stopImplicitCluster()
-
+})
 
 # ----- Resultados condicionales ---- 
 # El sistema produce resultados por hilo y es necesario juntarlos
@@ -411,10 +445,32 @@ for (k in 1:n.time){
 
 # ---- Simulación paralelizada no condicional ----
 # Cálculo previo de Weibull 
-scale.ICU.death <- 15.5 
-scale.ICU.HW <- 16.3 
-scale.HW.disc <- 8.4
-scale.HW.ICU <- 4.2
+if(modo.weibull=='manual'){ # TODO: poner condicion
+  # Modo: manual
+  # Scale
+  scale.ICU.death <- 15.5 
+  scale.ICU.HW <- 16.3 
+  scale.HW.disc <- 8.4
+  scale.HW.ICU <- 4.2
+  # Shape
+  shape.ICU.death <- 1.4
+  shape.ICU.HW <- 1.8
+  shape.HW.disc <- 2.6
+  shape.HW.ICU <- 1.6      
+} else if (modo.weibull=='automatico') {
+  # Modo: calculados por "eweibull"
+  # Scale
+  scale.ICU.death <- weibull.ICU.death.inc["scale"]
+  scale.ICU.HW <- weibull.ICU.HW.inc["scale"]
+  scale.HW.disc <- weibull.HW.disc.inc["scale"]
+  scale.HW.ICU <- weibull.HW.ICU.inc["scale"]    
+  # Shape
+  shape.ICU.death <- weibull.ICU.death.inc["shape"]
+  shape.ICU.HW <- weibull.ICU.HW.inc["shape"]
+  shape.HW.disc <- weibull.HW.disc.inc["shape"]
+  shape.HW.ICU <- weibull.HW.ICU.inc["shape"]       
+}
+
 
 # Cada bucle paralelo crea una lista de resultados (n.HOS, n.ICU...)
 # Al final se tiene una lista de longitud=par.m.loops, cada una con una lista de resultados
@@ -473,9 +529,12 @@ res <- foreach (par.m=1:par.m.loops, .errorhandling="pas") %dopar% {
     
     # -- Para cada individuo seleccionado (que tiene la enfermedad y es hospitalizado) --
     for (i in ind.H){
+      # Variables repetidas
+      ind.inf.time <- inf.time[j,i]
+      
       # Time since infection until hospital admission
       t.inf.until.hosp <- rnorm(n=1, mean=12-0.05*age.inc[j,i], sd=1)
-      state.inc[j,i,(ceiling(inf.time[j,i])+1):ceiling((inf.time[j,i] + t.inf.until.hosp-1))] = "I"
+      state.inc[j,i,(ceiling(ind.inf.time)+1):ceiling((ind.inf.time + t.inf.until.hosp-1))] = "I"
       
       #-------------------------------------------------
       # -- Simulación del primer estado del individuo --
@@ -485,30 +544,30 @@ res <- foreach (par.m=1:par.m.loops, .errorhandling="pas") %dopar% {
         v2 <- runif(1)
         if (v2 <= prob.HW.death) {# Patient dies in HW
           time.HW.death <- rexp(1, 0.1)# Of those admitted in hospital ward, the time to death 
-          state.inc[j,i,ceiling(inf.time[j,i] + t.inf.until.hosp) : ceiling(inf.time[j,i] + t.inf.until.hosp + time.HW.death)-1] = "H"
-          state.inc[j,i,ceiling(inf.time[j,i] + t.inf.until.hosp + time.HW.death)] = "H.Dead"
+          state.inc[j,i,ceiling(ind.inf.time + t.inf.until.hosp) : ceiling(ind.inf.time + t.inf.until.hosp + time.HW.death)-1] = "H"
+          state.inc[j,i,ceiling(ind.inf.time + t.inf.until.hosp + time.HW.death)] = "H.Dead"
           final.state.inc[j,i] = "Dead"
         } else if ( (v2 > prob.HW.death) && (v2 <= prob.HW.death+prob.HW.ICU) ) {# Patient goes to ICU
-          time.HW.ICU <- rweibull(1, shape=1.6, scale=scale.HW.ICU)# Time since hospital ward admission to ICU
-          state.inc[j,i,ceiling(inf.time[j,i] + t.inf.until.hosp) : ceiling(inf.time[j,i] + t.inf.until.hosp + time.HW.ICU)] = "H"
+          time.HW.ICU <- rweibull(1, shape=shape.HW.ICU, scale=scale.HW.ICU)# Time since hospital ward admission to ICU
+          state.inc[j,i,ceiling(ind.inf.time + t.inf.until.hosp) : ceiling(ind.inf.time + t.inf.until.hosp + time.HW.ICU)] = "H"
           final.state.inc[j,i] = "ICU"
         } else {# Patient discharged
-          time.HW.disc <- rweibull(1, shape=2.6, scale=scale.HW.disc )# Time since hospital ward admission to discharge is
-          state.inc[j,i,ceiling(inf.time[j,i] + t.inf.until.hosp) : ceiling(inf.time[j,i] + t.inf.until.hosp + time.HW.disc)-1] = "H"
-          state.inc[j,i,ceiling(inf.time[j,i] + t.inf.until.hosp + time.HW.disc)] = "H.Discharge"
+          time.HW.disc <- rweibull(1, shape=shape.HW.disc, scale=scale.HW.disc )# Time since hospital ward admission to discharge is
+          state.inc[j,i,ceiling(ind.inf.time + t.inf.until.hosp) : ceiling(ind.inf.time + t.inf.until.hosp + time.HW.disc)-1] = "H"
+          state.inc[j,i,ceiling(ind.inf.time + t.inf.until.hosp + time.HW.disc)] = "H.Discharge"
           final.state.inc[j,i] = "Discharge"}
       } else {
         #---------------------------------------------
         # Patient in ICU
         v3 <- runif(1)
         if (v3 <= prob.ICU.death) {# Patient dies in ICU
-          time.ICU.death <- rweibull(1, shape=1.4, scale=scale.ICU.death)# Time from admission in ICU to death
-          state.inc[j,i,ceiling(inf.time[j,i] + t.inf.until.hosp) : ceiling(inf.time[j,i] + t.inf.until.hosp + time.ICU.death)-1] = "ICU"
-          state.inc[j,i,ceiling(inf.time[j,i] + t.inf.until.hosp + time.ICU.death)] = "ICU.Dead"
+          time.ICU.death <- rweibull(1, shape=shape.ICU.death, scale=scale.ICU.death)# Time from admission in ICU to death
+          state.inc[j,i,ceiling(ind.inf.time + t.inf.until.hosp) : ceiling(ind.inf.time + t.inf.until.hosp + time.ICU.death)-1] = "ICU"
+          state.inc[j,i,ceiling(ind.inf.time + t.inf.until.hosp + time.ICU.death)] = "ICU.Dead"
           final.state.inc[j,i] = "Dead"
         } else {# Patient goes to hospital ward
-          time.ICU.HW <- rweibull(1, shape=1.8, scale=scale.ICU.HW ) # Time since admission in ICU till return to ward
-          state.inc[j,i,ceiling(inf.time[j,i] + t.inf.until.hosp) : ceiling(inf.time[j,i] + t.inf.until.hosp + time.ICU.HW)] = "ICU"
+          time.ICU.HW <- rweibull(1, shape=shape.ICU.HW, scale=scale.ICU.HW ) # Time since admission in ICU till return to ward
+          state.inc[j,i,ceiling(ind.inf.time + t.inf.until.hosp) : ceiling(ind.inf.time + t.inf.until.hosp + time.ICU.HW)] = "ICU"
           final.state.inc[j,i] = "HOS"
         }}
       
@@ -537,11 +596,11 @@ res <- foreach (par.m=1:par.m.loops, .errorhandling="pas") %dopar% {
             state.inc[j, i, pmin(n.time,ceiling(i.final+time.HW.death))] = "H.Dead"
             final.state.inc[j,i] = "Dead"
           } else if ( (v2 > prob.HW.death) && (v2 <= prob.HW.death+prob.HW.ICU) ) {# Patient goes to ICU
-            time.HW.ICU <- rweibull(1, shape=1.6, scale=scale.HW.ICU)# Time since hospital ward admission to ICU
+            time.HW.ICU <- rweibull(1, shape=shape.HW.ICU, scale=scale.HW.ICU)# Time since hospital ward admission to ICU
             state.inc[j,i,i.final: pmin(n.time,ceiling(i.final+time.HW.ICU))] = "H"
             final.state.inc[j,i] = "ICU"
           } else {# Patient discharged
-            time.HW.disc <- rweibull(1, shape=2.6, scale=scale.HW.disc)# Time since hospital ward admission to discharge is
+            time.HW.disc <- rweibull(1, shape=shape.HW.disc, scale=scale.HW.disc)# Time since hospital ward admission to discharge is
             state.inc[j,i,i.final: pmin(n.time,ceiling(i.final+time.HW.disc)-1)] = "H"
             state.inc[j,i,pmin(n.time,ceiling(i.final+time.HW.disc))] = "H.Discharge"
             final.state.inc[j,i] = "Discharge"}
@@ -549,12 +608,12 @@ res <- foreach (par.m=1:par.m.loops, .errorhandling="pas") %dopar% {
           # Si el estado final actual es UCI
           v3 <- runif(1)
           if (v3 <= prob.ICU.death) {# Patient dies in ICU
-            time.ICU.death <- rweibull(1, shape=1.4, scale=scale.ICU.death)# Time from admission in ICU to death
+            time.ICU.death <- rweibull(1, shape=shape.ICU.death, scale=scale.ICU.death)# Time from admission in ICU to death
             state.inc[j,i,i.final : pmin(n.time,ceiling(i.final+time.ICU.death)-1)] = "ICU"
             state.inc[j,i,pmin(n.time,ceiling(i.final+time.ICU.death))] = "ICU.Dead"
             final.state.inc[j,i] = "Dead"
           } else {# Patient goes to hospital ward
-            time.ICU.HW <- rweibull(1, shape=1.8, scale=scale.ICU.HW ) # Time since admission in ICU till return to ward
+            time.ICU.HW <- rweibull(1, shape=shape.ICU.HW, scale=scale.ICU.HW ) # Time since admission in ICU till return to ward
             state.inc[j,i,i.final : pmin(n.time,ceiling(i.final+time.ICU.HW))] = "ICU"
             final.state.inc[j,i] = "HOS"
           }}
