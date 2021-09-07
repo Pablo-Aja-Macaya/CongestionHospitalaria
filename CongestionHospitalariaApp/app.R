@@ -719,7 +719,7 @@ server <- function(input, output, session) {
                     state[j,i,(ceiling(ind.inf.time)+1):ceiling((ind.inf.time + t.inf.until.hosp-1))] = "I"
                     
                     # -- Parámetros Weibull según edad y sexo --
-                    if(modo.weibull=='manual'){
+                    if(input$modo.weibull=='manual'){
                         # Modo: fórmula manual
                         # Scale
                         scale.ICU.death <- 15.5 * ( (100 - abs(ind.age- 60) - 10*ind.gender) / 62 )
@@ -731,7 +731,7 @@ server <- function(input, output, session) {
                         shape.ICU.HW <- 1.8
                         shape.HW.disc <- 2.6
                         shape.HW.ICU <- 1.6        
-                    } else if (modo.weibull=='automatico') {
+                    } else if (input$modo.weibull=='automatico') {
                         # Modo: calculados por "eweibull" (pasa de 18 segundos a 36)
                         # Filas objetivo
                         weibull.ICU.death <- get.pams(weibull.ICU.death.cond, ind.age, ind.gender)
