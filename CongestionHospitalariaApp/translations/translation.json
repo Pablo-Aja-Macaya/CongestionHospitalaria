@@ -5,7 +5,10 @@
       {"en": "Hospital congestion", "es": "Congestión hospitalaria"},
       {"en": "Change language", "es": "Cambiar idioma"},
       
+      {"en": "Capacities", "es": "Capacidades"},
       {"en": "Simulation", "es": "Simulación"},
+      {"en": "Cases", "es": "Casos"},
+      {"en": "Hospitalized", "es": "Hospitalizados"},
 
       {"en": "Capacity analysis", "es": "Análisis de capacidad"},
       {

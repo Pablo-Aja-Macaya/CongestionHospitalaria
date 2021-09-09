@@ -190,144 +190,149 @@ ui <- fluidPage(
                         choices = languages,
                         selected = translator$get_key_translation())
         )
+        # column(2,
+        #        actionButton("toggleSidebar", "Toggle sidebar"),
+        # )
     ),
     
     # ---- Variables y resultados ----
     sidebarLayout(
-        sidebarPanel(
-            # ---- Variables comunes ----
-            h4(strong(translator$t("Hospital congestion")), style = "color:#008080"),
-            selectInput("area.sanitaria",
-                        strong(translator$t("Sanitary area")),
-                        choices = c("Coruña - Cee", "Ferrol", "Lugo - A Mariña - Monforte de Lemos",
-                                    "Ourense - Verín - O Barco de Valdeorras", "Pontevedra - O Salnés",
-                                    "Santiago de Compostela - Barbanza", "Vigo"),
-                        selected = "Coruña - Cee"
-            ),
-
-            selectInput("hosp.ref",
-                       strong(translator$t("Hospitals")),
-                       choices = list('Todos' = 'all',
-                                      "De referencia" = 1,
-                                      "No de referencia" = 0),
-                       selected = 'all'),
-            
-            selectInput("modo.weibull",
-                        strong(translator$t("Weibull calculations")),
-                        choices = list("Manual/Fórmula" = 'manual',
-                                       'Automático' = 'automatico'),
-                        selected = 'manual'),
-            # materialSwitch(inputId = "xxx", label = strong("Variables automáticas:"), status = "primary"),
-            hr(),
-            # ---- Variables de simulación ----
-            h4(strong(translator$t("Simulation variables"), circleButton("helpbox_simulacion_button",icon("question"),size='xs')) , style = "color:#008080"), 
-            uiOutput("helpbox_simulacion"),
-            fluidRow(
-                column(4,
-                       numericInput("m", strong(translator$t("Simulations")),
-                                    min = 0, max = 2000, value = 100),                     
+        div(id='Sidebar',
+            sidebarPanel(
+                # ---- Variables comunes ----
+                h4(strong(translator$t("Hospital congestion")), style = "color:#008080"),
+                selectInput("area.sanitaria",
+                            strong(translator$t("Sanitary area")),
+                            choices = c("Coruña - Cee", "Ferrol", "Lugo - A Mariña - Monforte de Lemos",
+                                        "Ourense - Verín - O Barco de Valdeorras", "Pontevedra - O Salnés",
+                                        "Santiago de Compostela - Barbanza", "Vigo"),
+                            selected = "Coruña - Cee"
                 ),
-                column(4,
-                       numericInput("n.ind", strong(translator$t("Individuals")),
-                                    min = 0, max = 1000, value = 1000),                  
+                
+                selectInput("hosp.ref",
+                            strong(translator$t("Hospitals")),
+                            choices = list('Todos' = 'all',
+                                           "De referencia" = 1,
+                                           "No de referencia" = 0),
+                            selected = 'all'),
+                
+                selectInput("modo.weibull",
+                            strong(translator$t("Weibull calculations")),
+                            choices = list("Manual/Fórmula" = 'manual',
+                                           'Automático' = 'automatico'),
+                            selected = 'manual'),
+                # materialSwitch(inputId = "xxx", label = strong("Variables automáticas:"), status = "primary"),
+                hr(),
+                # ---- Variables de simulación ----
+                h4(strong(translator$t("Simulation variables"), circleButton("helpbox_simulacion_button",icon("question"),size='xs')) , style = "color:#008080"), 
+                uiOutput("helpbox_simulacion"),
+                fluidRow(
+                    column(4,
+                           numericInput("m", strong(translator$t("Simulations")),
+                                        min = 0, max = 2000, value = 100),                     
+                    ),
+                    column(4,
+                           numericInput("n.ind", strong(translator$t("Individuals")),
+                                        min = 0, max = 1000, value = 1000),                  
+                    ),
+                    column(4,
+                           numericInput("n.time", strong(translator$t("Days")),
+                                        min = 0, max = 300, value = 250),                  
+                    ),
                 ),
-                column(4,
-                       numericInput("n.time", strong(translator$t("Days")),
-                                    min = 0, max = 300, value = 250),                  
+                fluidRow(
+                    column(6,
+                           numericInput("num.cores", strong(translator$t("Threads")),
+                                        min = 0, max = 6, value = 4),                     
+                    ),
+                    column(6,
+                           numericInput("par.m.loops", strong(translator$t("Groups")),
+                                        min = 1, max = 20, value = 10),                     
+                    ),
                 ),
-            ),
-            fluidRow(
-                column(6,
-                       numericInput("num.cores", strong(translator$t("Threads")),
-                                    min = 0, max = 6, value = 4),                     
+                fluidRow(
+                    column(6,
+                           numericInput("inf.time.avg", strong(translator$t("Average day of infection")),
+                                        min = 100, max = 200, value = 100),                     
+                    ),
+                    column(6,
+                           numericInput("inf.time.sd", strong(translator$t("Deviation from infection day")),
+                                        min = 1, max = 25, value = 10),                     
+                    ),
                 ),
-                column(6,
-                       numericInput("par.m.loops", strong(translator$t("Groups")),
-                                    min = 1, max = 20, value = 10),                     
+                # ---- Botón de simulación ----
+                fluidRow(
+                    column(12,actionButton("ejecutar_simulacion",translator$t("Execute simulation"), icon("paper-plane"), 
+                                           style="color: #fff; background-color: #337ab7; border-color: #2e6da4;"),align='center')
                 ),
-            ),
-            fluidRow(
-                column(6,
-                       numericInput("inf.time.avg", strong(translator$t("Average day of infection")),
-                                    min = 100, max = 200, value = 100),                     
+                hr(),
+                
+                # ---- Probabilidades ----
+                h4(strong(translator$t("Probabilities"), circleButton("helpbox_probabilidades_button",icon("question"),size='xs')),style = "color:#008080"),
+                uiOutput("helpbox_probabilidades"),
+                h5(strong(translator$t("Initial probabilities")), style = "color:#008080"),
+                fluidRow(
+                    column(6,
+                           sliderInput("prob.ICU", strong(translator$t("ICU admission")),
+                                       min = 0, max = 1, value = 0.5, ticks=F),                       
+                    ),
+                    column(6,
+                           sliderInput("prob.HW", strong(translator$t("Hospital admission")),
+                                       min = 0, max = 1, value = 0.5, ticks=F),                       
+                    ),
                 ),
-                column(6,
-                       numericInput("inf.time.sd", strong(translator$t("Deviation from infection day")),
-                                    min = 1, max = 25, value = 10),                     
+                
+                h5(strong(translator$t("Probabilities in hospital")), style = "color:#008080"),
+                fluidRow(
+                    column(4,
+                           sliderInput("prob.HW.death", strong(translator$t("Death")),
+                                       min = 0, max = 1, value = 0.5, ticks=F),                     
+                    ),
+                    column(4,
+                           sliderInput("prob.HW.ICU", strong(translator$t("ICU")),
+                                       min = 0, max = 1, value = 0.5, ticks=F),                      
+                    ),
+                    column(4,
+                           sliderInput("prob.HW.disc", strong(translator$t("Discharge")),
+                                       min = 0, max = 1, value = 0.5, ticks=F),                    
+                    ),
                 ),
-            ),
-            # ---- Botón de simulación ----
-            fluidRow(
-                column(12,actionButton("ejecutar_simulacion",translator$t("Execute simulation"), icon("paper-plane"), 
-                                       style="color: #fff; background-color: #337ab7; border-color: #2e6da4;"),align='center')
-            ),
-            hr(),
-            
-            # ---- Probabilidades ----
-            h4(strong(translator$t("Probabilities"), circleButton("helpbox_probabilidades_button",icon("question"),size='xs')),style = "color:#008080"),
-            uiOutput("helpbox_probabilidades"),
-            h5(strong(translator$t("Initial probabilities")), style = "color:#008080"),
-            fluidRow(
-                column(6,
-                       sliderInput("prob.ICU", strong(translator$t("ICU admission")),
-                                   min = 0, max = 1, value = 0.5, ticks=F),                       
+                
+                h5(strong(translator$t("Probabilities in ICU")), style = "color:#008080"),
+                fluidRow(
+                    column(6,
+                           sliderInput("prob.ICU.death", strong(translator$t("Death")),
+                                       min = 0, max = 1, value = 0.5, ticks=F),                     
+                    ),
+                    column(6,
+                           sliderInput("prob.ICU.HW", strong(translator$t("Hospital")),
+                                       min = 0, max = 1, value = 0.5, ticks=F),                     
+                    ),
                 ),
-                column(6,
-                       sliderInput("prob.HW", strong(translator$t("Hospital admission")),
-                                   min = 0, max = 1, value = 0.5, ticks=F),                       
-                ),
-            ),
-        
-            h5(strong(translator$t("Probabilities in hospital")), style = "color:#008080"),
-            fluidRow(
-                column(4,
-                       sliderInput("prob.HW.death", strong(translator$t("Death")),
-                                   min = 0, max = 1, value = 0.5, ticks=F),                     
-                ),
-                column(4,
-                       sliderInput("prob.HW.ICU", strong(translator$t("ICU")),
-                                   min = 0, max = 1, value = 0.5, ticks=F),                      
-                ),
-                column(4,
-                       sliderInput("prob.HW.disc", strong(translator$t("Discharge")),
-                                   min = 0, max = 1, value = 0.5, ticks=F),                    
-                ),
-            ),
-
-            h5(strong(translator$t("Probabilities in ICU")), style = "color:#008080"),
-            fluidRow(
-                column(6,
-                       sliderInput("prob.ICU.death", strong(translator$t("Death")),
-                                   min = 0, max = 1, value = 0.5, ticks=F),                     
-                ),
-                column(6,
-                       sliderInput("prob.ICU.HW", strong(translator$t("Hospital")),
-                                   min = 0, max = 1, value = 0.5, ticks=F),                     
-                ),
-            ),
-
-            hr(),
-            
-            # ---- Proporciones muestrales ----
-            h4(strong(translator$t("Variables calculated from hospital data")), style = "color:#008080"),
-            dataTableOutput("table.prob.resumen"),
-            numericInput('prob.w',
-                         strong(translator$t("Probability of being a woman (prob.w)")),
-                         min = 0, max = 1, value = 0),
-            numericInput('prob.m',
-                         strong(translator$t("Probability of being a man (prob.m)")),
-                         min = 0, max = 1, value = 0),
-            numericInput('prob.rc.real',
-                         strong(translator$t("Hospitalized proportions (prob.rc.real)")),
-                         min = 0, max = 1, value = 0),
-            hr(),
-
-            
+                
+                hr(),
+                
+                # ---- Proporciones muestrales ----
+                h4(strong(translator$t("Variables calculated from hospital data")), style = "color:#008080"),
+                dataTableOutput("table.prob.resumen"),
+                numericInput('prob.w',
+                             strong(translator$t("Probability of being a woman (prob.w)")),
+                             min = 0, max = 1, value = 0),
+                numericInput('prob.m',
+                             strong(translator$t("Probability of being a man (prob.m)")),
+                             min = 0, max = 1, value = 0),
+                numericInput('prob.rc.real',
+                             strong(translator$t("Hospitalized proportions (prob.rc.real)")),
+                             min = 0, max = 1, value = 0),
+                hr(),
+                
+            )            
         ),
+
 
         # ---- Apartados ----
         mainPanel(
-            # ---- Tabsets de gráficas ----
+            # ---- Tabsets ----
             tabsetPanel(id='tabset_resultados', type = "tabs",
                         tabPanel(translator$t("Capacity analysis"), 
                                  h4(strong(translator$t("Capacity analysis")),circleButton("helpbox_analisis_capacidad_button",icon("question"),size='xs')),
@@ -335,11 +340,33 @@ ui <- fluidPage(
                                  plotOutput("analisis", height=4000) %>% withSpinner()
                                  
                         ),
+                        tabPanel(translator$t("Capacities"),
+                                 br(),
+                                 dataTableOutput("table.capacidades")
+                        ),
+                        tabPanel(translator$t("Cases"),
+                                 br(),
+                                 dataTableOutput("table.casos")
+                        ),
+                        tabPanel(translator$t("Hospitalized"),
+                                 br(),
+                                 dataTableOutput("table.hospitalizados")
+                        ),
                         tabPanel(translator$t("Simulation"), 
                                  h4(strong(translator$t("Simulation"))),
                                  plotOutput("res.condicional") %>% withSpinner(),
                                  plotOutput("res.incondicional") %>% withSpinner()
                         )
+                        # tabPanel('Datos',
+                        #     fluidRow(
+                        #         column(
+                        #             br(),
+                        #             tabsetPanel(type = "tabs",
+                        # 
+                        #             ),
+                        #             width = 12)
+                        #     )
+                        # )
             ),
 
 
@@ -347,25 +374,7 @@ ui <- fluidPage(
     ),
     # ---- Tablas ----
     
-    # fluidRow(
-    #     column(
-    # 
-    #         tabsetPanel(type = "tabs",
-    #                     tabPanel("Capacidades",
-    #                              br(),
-    #                              dataTableOutput("table.capacidades")
-    #                     ),
-    #                     tabPanel("Casos",
-    #                              br(),
-    #                              dataTableOutput("table.casos")
-    #                     ),
-    #                     tabPanel("Hospitalizados",
-    #                              br(),
-    #                              dataTableOutput("table.hospitalizados")
-    #                     )
-    #         ),
-    #     width = 12  )
-    # )
+
 
 )
 
@@ -375,6 +384,10 @@ server <- function(input, output, session) {
     # ---- Actualizar traducciones ----
     observeEvent(input$selected_language, {
         shiny.i18n::update_lang(session, input$selected_language)
+    })
+    # Ocultar sidebar
+    observeEvent(input$toggleSidebar, {
+        shinyjs::toggle(id = "Sidebar")
     })
     
     # ---- Comentarios de ayuda ----´
@@ -507,7 +520,9 @@ server <- function(input, output, session) {
         hospital.capacity.stats <- list()
         
         par(mfrow=c(length(hospitales)*4,2))
+        par(mfrow=c(length(hospitales)*4,2), mar=c(5,4,6,2))
         for (h in hospitales){
+            plot.tittle.line <- 1
             # Inicialización de dataframe de unidades*medidas para el hospital
             hospital.capacity.stats[[h]] <- data.frame(matrix(ncol = length(unidades), nrow = 3))
             names(hospital.capacity.stats[[h]]) <- unidades
@@ -530,50 +545,103 @@ server <- function(input, output, session) {
                 max.sobrepasado <- fechas[which(tot.ocupadas>percentiles[['90%']])]
                 median.sobrepasado <- fechas[which(tot.ocupadas>mediana)]
                 
-                # Histograma
-                hist(tot, main=glue('{h} \n({u})'), col=rgb(66/255, 139/255, 202/255, alpha=0.8), xlab='Total camas') 
+                # -- Histograma ----
+                hist(tot, breaks = 30, main=glue('{h} \n({u})'), col='gray', xlab='Total camas') 
                 title(sub=paste('Mediana:', mediana), adj=1, line=2, font=2,cex.sub = 0.75)
                 title(sub=paste('Percentil 10:', percentiles[['10%']]), adj=1, line=3, font=2,cex.sub = 0.75)
                 title(sub=paste('Percentil 90:', percentiles[['90%']]), adj=1, line=4, font=2,cex.sub = 0.75)
+                title("Histograma de camas", line = plot.tittle.line)
                 
-                # Plot de número de camas a lo largo de la pandemia
-                plot(total_camas ~ fecha_envio, datos, ylim=c(0,max(tot, na.rm=T)+max(tot, na.rm=T)*0.25), xaxt = "n", type = "l", main=glue('{h} \n({u})'), xlab=NA)
-                for (d in min.sobrepasado){
-                    rect(d-1,0-20,
-                         d+1,max(tot, na.rm=T)+80,
-                         col= rgb(1,0,0,alpha=0.05), lwd=0)      
-                }
-                for (d in max.sobrepasado){
-                    rect(d-1,0-20,
-                         d+1,max(tot, na.rm=T)+80,
-                         col= rgb(1,0,0,alpha=0.3), lwd=0)      
-                }
-                for (d in median.sobrepasado){
-                    rect(d-1,0-20,
-                         d+1,max(tot, na.rm=T)+80,
-                         col= rgb(1,0,0,alpha=0.15), lwd=0)      
-                }
-                rect(fechas[1]-20,percentiles[['10%']],
-                     fechas[length(fechas)]+20,percentiles[['90%']],
-                     col= rgb(0,0,1,alpha=0.05), lwd=0)
-                lines(ocupadas_no_covid19 ~ fecha_envio, datos, type="l",lty=1, lwd=1, col='blue')
-                lines(ocupadas_covid19 ~ fecha_envio, datos, type="l",lty=1, lwd=1, col='red')
-                lines(total_ocupadas ~ fecha_envio, datos, type="l",lty=1, lwd=1, col='green')
-                abline(h=mediana, col='darkorchid', lty=1)
-                # abline(h=percentiles[['10%']], col='deeppink', lty=5)
-                # abline(h=percentiles[['90%']], col='darkslateblue', lty=5)
-                
-                axis.Date(1, at=seq(min(fechas), max(fechas), length.out=10), format='%b %Y', las=2, cex.axis=0.8)    
-                legend('topright',legend = c('Total camas','Total ocupadas','Ocupadas por COVID','Ocupadas por no COVID','Mediana total camas'), 
-                       col = c("black","green", "red", "blue", "darkorchid"), lwd = 2, xpd = TRUE, cex = 0.5, bty = 'n')
-                # legend("topright", legend = c('total_camas','COVID19','NO COVID19'),
-                #        col = c('black','red','blue'), lty=c(1,1,1), pch = c(NA,NA,NA), bty = "n")
+                # # -- Plot de número de camas a lo largo de la pandemia ----
+                # plot(total_camas ~ fecha_envio, datos, ylim=c(0,max(tot, na.rm=T)+max(tot, na.rm=T)*0.25), xaxt = "n", type = "l", main=NA, xlab=NA, ylab='Camas')
+                # # Columnas rojas (días donde se sobrepasa una de las estadísticas)
+                # # Cuanto más rojizas más gravedad
+                # for (d in min.sobrepasado){
+                #     rect(d-1, 0-20,
+                #          d+1, max(tot, na.rm=T)+80,
+                #          col= rgb(1,0,0,alpha=0.05), lwd=0)      
+                # }
+                # for (d in max.sobrepasado){
+                #     rect(d-1, 0-20,
+                #          d+1, max(tot, na.rm=T)+80,
+                #          col= rgb(1,0,0,alpha=0.3), lwd=0)      
+                # }
+                # for (d in median.sobrepasado){
+                #     rect(d-1, 0-20,
+                #          d+1, max(tot, na.rm=T)+80,
+                #          col= rgb(1,0,0,alpha=0.15), lwd=0)      
+                # }
+                # # Área entre percentil10 y percentil90
+                # rect(fechas[1]-20,percentiles[['10%']],
+                #      fechas[length(fechas)]+20,percentiles[['90%']],
+                #      col= rgb(0,0,1,alpha=0.05), lwd=0)
+                # # Datos de ocupación
+                # lines(ocupadas_no_covid19 ~ fecha_envio, datos, type="l",lty=1, lwd=1, col='blue')
+                # lines(ocupadas_covid19 ~ fecha_envio, datos, type="l",lty=1, lwd=1, col='red')
+                # lines(total_ocupadas ~ fecha_envio, datos, type="l",lty=1, lwd=1, col='green')
+                # abline(h=mediana, col='darkorchid', lty=1)
+                # # abline(h=percentiles[['10%']], col='deeppink', lty=5)
+                # # abline(h=percentiles[['90%']], col='darkslateblue', lty=5)
                 # 
+                # axis.Date(1, at=seq(min(fechas), max(fechas), length.out=10), format='%b %Y', las=2, cex.axis=0.8)    
+                # legend('topright',legend = c('Total camas','Total ocupadas','Ocupadas por COVID','Ocupadas por no COVID','Mediana total camas'), 
+                #        col = c("black","green", "red", "blue", "darkorchid"), lwd = 2, xpd = TRUE, cex = 0.5, bty = 'n')
+                # 
+                # title("Total de camas", line = plot.tittle.line)
+                # 
+                
+                # -- Plot de porcentaje de ocupación a lo largo de la pandemia ----
+                ocupados.covid.pct <- (datos$ocupadas_covid19/datos$total_camas)*100
+                ocupados.nocovid.pct <- (datos$ocupadas_no_covid19/datos$total_camas)*100
+                ocupados.total.pct <- ((datos$ocupadas_covid19+datos$ocupadas_no_covid19)/datos$total_camas)*100
+                df.ocupados.pct <- data.frame(ocupados.covid.pct, ocupados.nocovid.pct, ocupados.total.pct, fecha_envio=datos$fecha_envio)
+                
+                plot(ocupados.covid.pct ~ fecha_envio, df.ocupados.pct, ylim=c(0,100), xaxt = "n", type = "l", main=glue('{h} \n({u})'), xlab=NA, ylab='Ocupación (%)', col='red')
+                
+                add.risk.scale = function(u){
+                    # https://www.mscbs.gob.es/profesionales/saludPublica/ccayes/alertasActual/nCov/documentos/Actuaciones_respuesta_COVID_26.03.2021.pdf
+                    # Dependiendo de la unidad el porcentaje de ocupación es más o menos preocupante
+                    if (u %in% c('Hospitalización convencional')){
+                        risks <- data.frame(nueva.normalidad = c(0,2), bajo = c(2,5),
+                                            medio = c(5,10), alto = c(10,15), muy.alto = c(15,100))
+                    } else if (u %in% c('U. Críticas CON respirador','U. Críticas SIN respirador')){
+                        risks <- data.frame(nueva.normalidad = c(0,5), bajo = c(5,10),
+                                            medio = c(10,15), alto = c(15,25), muy.alto = c(25,100))
+                    } else {return(NULL)}
+                    # Se añade el color a cada nivel
+                    risk.alpha <- 0.05
+                    risks <- rbind(risks, c(rgb(0,1,0,alpha=risk.alpha), rgb(1,1,0,alpha=risk.alpha),
+                                            rgb(1,0.7,0,alpha=risk.alpha), rgb(1,0,1,alpha=risk.alpha),
+                                            rgb(1,0,0,alpha=risk.alpha)))
+                    # Dibujo de áreas de riesgo en el color correspondiente
+                    apply(risks, 2, function(l){
+                        rect(fechas[1], l[1],
+                             fechas[length(fechas)], l[2],
+                             col= l[3], lwd=0.08)   
+                        
+                    })
+                    # Datos se ponen ahora para pisar los cuadros de color
+                    lines(ocupados.covid.pct ~ fecha_envio, df.ocupados.pct, type="l",lty=1, lwd=1, col='red')
+                    lines(ocupados.nocovid.pct ~ fecha_envio, df.ocupados.pct, type="l",lty=1, lwd=1, col='blue')
+                    lines(ocupados.total.pct ~ fecha_envio, df.ocupados.pct, type="l",lty=1, lwd=1, col='green')
+                    
+                }
+                add.risk.scale(u)
+                
+                axis.Date(1, at=seq(min(fechas), max(fechas), length.out=10), format='%b %Y', las=2, cex.axis=0.8)   
+                
+                title("Porcentaje de ocupación", line = plot.tittle.line)
+                
+                # title(glue('{h} \n({u})'), line = -3, outer = TRUE) # título general (hospital y unidad)
+                
                 # Meter resultados en la lista
                 hospital.capacity.stats[[h]][[u]] <- c(mediana, percentiles[['10%']], percentiles[['90%']])
+                
             }
+            
         }
         par(mfrow=c(1,1))
+        
         capacidades$hospital.capacity.stats <- hospital.capacity.stats
 
         # ---- Juntar datos de hospitales para encontrar stats del conjunto ----
