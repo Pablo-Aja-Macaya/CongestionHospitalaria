@@ -1,0 +1,77 @@
+{
+  "cultural_date_format": "%d-%m-%Y",
+  "languages": ["en","es"],
+  "translation": [
+      {"en": "Hospital congestion", "es": "Congestión hospitalaria"},
+      {"en": "Change language", "es": "Cambiar idioma"},
+      
+      {"en": "Simulation", "es": "Simulación"},
+
+      {"en": "Capacity analysis", "es": "Análisis de capacidad"},
+      {
+        "en": "The analysis indicates, for each hospital and unit (ICU, conventional), its capacity (black), the number of occupied beds (COVID, red or non Covid, blue), the area where the avaliable beds  orbit (purple) and the days where a limit was achieved (red columns).", 
+        "es": "El análisis indica, para cada hospital y unidad (UCI, convencional...), la capacidad de esta (negro), el número de camas ocupadas (COVID, rojo o no COVID, azul), el área donde se mueve la cantidad de camas disponibles (morado) y los días en los que se superaron algún límite (columnas rojas)."
+      },
+      
+      {"en": "Common variables", "es": "Variables comunes"},
+      {"en": "Sanitary area", "es": "Área sanitaria"},
+
+      {"en": "Hospitals", "es": "Hospitales"},
+      {"en": "All", "es": "Todos"},
+      {"en": "Refference", "es": "De referencia"},
+      {"en": "Non refference", "es": "No de referencia"},
+
+      {"en": "Weibull calculations", "es": "Cálculo Weibull"},
+      {"en": "Manual/Formula", "es": "Manual/Formula"},
+      {"en": "Automatic", "es": "Automático"},
+
+      
+      {"en": "Simulation variables", "es": "Variables de simulación"},
+      {
+        "en": "These variables guide the simulation system. It will use N simulations, each with J individuals and K days. These simulations will be split in groups and divided among the selected threads.", 
+        "es": "Estas variables guían el sistema de simulación. Se realizarán N simulaciones, cada una con J individuos y K días. Estas simulaciones se repartirán en bloques o tandas de simulación, las cuales serán paralelizadas entre los hilos seleccionados."
+      },
+      {"en": "Simulations", "es": "Simulaciones"},
+      {"en": "Individuals", "es": "Individuos"},
+      {"en": "Days", "es": "Días"},
+      {"en": "Threads", "es": "Hilos"},
+      {"en": "Groups", "es": "Tandas"},
+      {"en": "Average day of infection", "es": "Día medio de infección"},
+      {"en": "Deviation from infection day", "es": "Desviación del día"},
+      
+      {"en": "Execute simulation", "es": "Ejecutar simulación"},
+      
+      {"en": "Probabilities", "es": "Probabilidades"},
+      {
+        "en": "The system simulates the state of each patient across the selected days (Hospital, ICU, discharge or death). The transition between each state is given by these variables.", 
+        "es": "El sistema simula el estado de cada paciente a lo largo de los días (Hospital, UCI, salida o muerte). La transición entre cada estado viene dada por estas variables."
+      },
+      
+      {"en": "Initial probabilities", "es": "Probabilidades iniciales"},
+      {"en": "ICU admission", "es": "Hospital"},
+      {"en": "Hospital admission", "es": "UCI"},
+      
+      {"en": "Probabilities in hospital", "es": "Probabilidades desde hospital"},
+      {"en": "Probabilities in ICU", "es": "Probabilidades desde UCI"},
+
+      {"en": "Death", "es": "Muerte"},
+      {"en": "ICU", "es": "UCI"},
+      {"en": "Discharge", "es": "Discharge"},
+      {"en": "Hospital", "es": "Hospital"},
+      
+      {"en": "Variables calculated from hospital data", "es": "Variables calculadas a partir de hospitales"},
+      {"en": "Probability of being a woman (prob.w)", "es": "Probabilidad de ser mujer (prob.w)"},
+      {"en": "Probability of being a man (prob.m)", "es": "Probabilidad de ser un hombre (prob.m)"},
+      {"en": "Hospitalized proportions (prob.rc.real)", "es": "Proporciones muestrales de hospitalizados (prob.rc.real)"},
+
+
+
+
+
+      {"en": "Non sanitary centers", "es": "Centros no sanitarios"},
+      {"en": "Conventional hospitalization", "es": "Hospitalización convencional"},
+      {"en": "ICU (respirator)", "es": "U. Críticas CON respirador"},
+      {"en": "ICU (no respirator)", "es": "U. Críticas SIN respirador"}
+
+    ]
+}

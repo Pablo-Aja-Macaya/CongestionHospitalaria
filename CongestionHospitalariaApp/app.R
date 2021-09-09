@@ -9,6 +9,7 @@ library(shinycssloaders)
 library(shinybusy)
 library(shinythemes)
 library(shinyWidgets)
+library(shiny.i18n)
 # Simulación
 library(Rlab)
 library(data.table)
@@ -25,6 +26,7 @@ areas.hospitales <- data.frame(read_csv("../datos/areas_hospitales_correspondenc
 casos.org <- data.frame(read_csv("../datos/sivies_agreg_area_sanitaria.csv")) # casos base
 capacidad.org <- data.frame(read_csv("../datos/capacidadasistencial.csv", locale = locale(encoding = "ISO-8859-1"))) # capacidad asistencial
 names(capacidad.org) <- tolower(names(capacidad.org))
+
 
 #########################
 # ------- Casos ------- #
@@ -161,126 +163,145 @@ get.pams <- function(df, age, sex){
 #################
 # ---- APP ---- #
 #################
+
+# Diccionario de traducciones
+translator <- Translator$new(translation_json_path = "./translations/translation.json")
+translator$set_translation_language("en") # lenguaje por defecto
+languages <- list('Español'='es', 'English'='en')
+
 ui <- fluidPage(
     # theme = shinytheme("lumen"),
     shinyjs::useShinyjs(),
+    shiny.i18n::usei18n(translator),
+
     tags$style(HTML('table.dataTable tr.selected td, table.dataTable td.selected {background-color: #008080 !important; color: white !important}')), # color de highlight de tabla
     tags$style(".fa-quesion {color: black}"),
     add_busy_bar(color = "#008080"),
     
     
-    title="Congestión Hospitalaria",
-    titlePanel(h2(strong("Congestión Hospitalaria"), style = "color:#008080")),
-
-    br(),
+    title=translator$t("Hospital congestion"),
+    fluidRow(
+        column(10,
+            titlePanel(h2(strong(translator$t("Hospital congestion")), style = "color:#008080")),
+            ),
+        column(2,
+            selectInput('selected_language',
+                        translator$t("Change language"),
+                        choices = languages,
+                        selected = translator$get_key_translation())
+        )
+    ),
+    
     # ---- Variables y resultados ----
     sidebarLayout(
         sidebarPanel(
             # ---- Variables comunes ----
-            h4(strong("Variables comunes"), style = "color:#008080"),
+            h4(strong(translator$t("Hospital congestion")), style = "color:#008080"),
             selectInput("area.sanitaria",
-                        strong("Área sanitaria:"),
+                        strong(translator$t("Sanitary area")),
                         choices = c("Coruña - Cee", "Ferrol", "Lugo - A Mariña - Monforte de Lemos",
                                     "Ourense - Verín - O Barco de Valdeorras", "Pontevedra - O Salnés",
                                     "Santiago de Compostela - Barbanza", "Vigo"),
                         selected = "Coruña - Cee"
             ),
+
             selectInput("hosp.ref",
-                       strong("Hospitales"),
-                       choices = list("Todos" = 'all',
+                       strong(translator$t("Hospitals")),
+                       choices = list('Todos' = 'all',
                                       "De referencia" = 1,
                                       "No de referencia" = 0),
                        selected = 'all'),
+            
             selectInput("modo.weibull",
-                        strong("Tipo de cálculo Weibull"),
+                        strong(translator$t("Weibull calculations")),
                         choices = list("Manual/Fórmula" = 'manual',
-                                       "Automático" = 'automatico'),
+                                       'Automático' = 'automatico'),
                         selected = 'manual'),
             # materialSwitch(inputId = "xxx", label = strong("Variables automáticas:"), status = "primary"),
             hr(),
             # ---- Variables de simulación ----
-            h4(strong("Variables de simulación", circleButton("helpbox_simulacion_button",icon("question"),size='xs')) , style = "color:#008080"), 
+            h4(strong(translator$t("Simulation variables"), circleButton("helpbox_simulacion_button",icon("question"),size='xs')) , style = "color:#008080"), 
             uiOutput("helpbox_simulacion"),
             fluidRow(
                 column(4,
-                       numericInput("m", strong("Simulaciones:"),
+                       numericInput("m", strong(translator$t("Simulations")),
                                     min = 0, max = 2000, value = 100),                     
                 ),
                 column(4,
-                       numericInput("n.ind", strong("Individuos:"),
+                       numericInput("n.ind", strong(translator$t("Individuals")),
                                     min = 0, max = 1000, value = 1000),                  
                 ),
                 column(4,
-                       numericInput("n.time", strong("Días:"),
+                       numericInput("n.time", strong(translator$t("Days")),
                                     min = 0, max = 300, value = 250),                  
                 ),
             ),
             fluidRow(
                 column(6,
-                       numericInput("num.cores", strong("Hilos:"),
+                       numericInput("num.cores", strong(translator$t("Threads")),
                                     min = 0, max = 6, value = 4),                     
                 ),
                 column(6,
-                       numericInput("par.m.loops", strong("Tandas de simulación:"),
+                       numericInput("par.m.loops", strong(translator$t("Groups")),
                                     min = 1, max = 20, value = 10),                     
                 ),
             ),
             fluidRow(
                 column(6,
-                       numericInput("inf.time.avg", strong("Día medio donde ocurre la infección:"),
+                       numericInput("inf.time.avg", strong(translator$t("Average day of infection")),
                                     min = 100, max = 200, value = 100),                     
                 ),
                 column(6,
-                       numericInput("inf.time.sd", strong("Desviación del día medio de infección:"),
+                       numericInput("inf.time.sd", strong(translator$t("Deviation from infection day")),
                                     min = 1, max = 25, value = 10),                     
                 ),
             ),
             # ---- Botón de simulación ----
             fluidRow(
-                column(12,actionButton("ejecutar_simulacion","Ejecutar simulación", icon("paper-plane"), 
+                column(12,actionButton("ejecutar_simulacion",translator$t("Execute simulation"), icon("paper-plane"), 
                                        style="color: #fff; background-color: #337ab7; border-color: #2e6da4;"),align='center')
             ),
             hr(),
             
             # ---- Probabilidades ----
-            h4(strong("Probabilidades", circleButton("helpbox_probabilidades_button",icon("question"),size='xs')),style = "color:#008080"),
+            h4(strong(translator$t("Probabilities"), circleButton("helpbox_probabilidades_button",icon("question"),size='xs')),style = "color:#008080"),
             uiOutput("helpbox_probabilidades"),
-            h5(strong("Probabilidades iniciales"), style = "color:#008080"),
+            h5(strong(translator$t("Initial probabilities")), style = "color:#008080"),
             fluidRow(
                 column(6,
-                       sliderInput("prob.ICU", strong("Ingresar en UCI:"),
+                       sliderInput("prob.ICU", strong(translator$t("ICU admission")),
                                    min = 0, max = 1, value = 0.5, ticks=F),                       
                 ),
                 column(6,
-                       sliderInput("prob.HW", strong("Ingresar en hospital:"),
+                       sliderInput("prob.HW", strong(translator$t("Hospital admission")),
                                    min = 0, max = 1, value = 0.5, ticks=F),                       
                 ),
             ),
         
-            h5(strong("Probabilidades desde hospital"), style = "color:#008080"),
+            h5(strong(translator$t("Probabilities in hospital")), style = "color:#008080"),
             fluidRow(
                 column(4,
-                       sliderInput("prob.HW.death", strong("Muerte:"),
+                       sliderInput("prob.HW.death", strong(translator$t("Death")),
                                    min = 0, max = 1, value = 0.5, ticks=F),                     
                 ),
                 column(4,
-                       sliderInput("prob.HW.ICU", strong("Ir a UCI:"),
+                       sliderInput("prob.HW.ICU", strong(translator$t("ICU")),
                                    min = 0, max = 1, value = 0.5, ticks=F),                      
                 ),
                 column(4,
-                       sliderInput("prob.HW.disc", strong("Discharge:"),
+                       sliderInput("prob.HW.disc", strong(translator$t("Discharge")),
                                    min = 0, max = 1, value = 0.5, ticks=F),                    
                 ),
             ),
 
-            h5(strong("Probabilidades desde UCI"), style = "color:#008080"),
+            h5(strong(translator$t("Probabilities in ICU")), style = "color:#008080"),
             fluidRow(
                 column(6,
-                       sliderInput("prob.ICU.death", strong("Muerte:"),
+                       sliderInput("prob.ICU.death", strong(translator$t("Death")),
                                    min = 0, max = 1, value = 0.5, ticks=F),                     
                 ),
                 column(6,
-                       sliderInput("prob.ICU.HW", strong("Ir a hospital:"),
+                       sliderInput("prob.ICU.HW", strong(translator$t("Hospital")),
                                    min = 0, max = 1, value = 0.5, ticks=F),                     
                 ),
             ),
@@ -288,16 +309,16 @@ ui <- fluidPage(
             hr(),
             
             # ---- Proporciones muestrales ----
-            h4(strong("Variables calculadas a partir de hospitales"), style = "color:#008080"),
+            h4(strong(translator$t("Variables calculated from hospital data")), style = "color:#008080"),
             dataTableOutput("table.prob.resumen"),
             numericInput('prob.w',
-                         strong('Probabilidad de ser mujer (prob.w):'),
+                         strong(translator$t("Probability of being a woman (prob.w)")),
                          min = 0, max = 1, value = 0),
             numericInput('prob.m',
-                         strong('Probabilidad de ser hombre (prob.m):'),
+                         strong(translator$t("Probability of being a man (prob.m)")),
                          min = 0, max = 1, value = 0),
             numericInput('prob.rc.real',
-                         strong('Proporciones muestrales de hospitalizados (prob.rc.real):'),
+                         strong(translator$t("Hospitalized proportions (prob.rc.real)")),
                          min = 0, max = 1, value = 0),
             hr(),
 
@@ -306,17 +327,16 @@ ui <- fluidPage(
 
         # ---- Apartados ----
         mainPanel(
-
             # ---- Tabsets de gráficas ----
             tabsetPanel(id='tabset_resultados', type = "tabs",
-                        tabPanel("Análisis capacidad", 
-                                 h4(strong('Análisis de capacidad'),circleButton("helpbox_analisis_capacidad_button",icon("question"),size='xs')),
+                        tabPanel(translator$t("Capacity analysis"), 
+                                 h4(strong(translator$t("Capacity analysis")),circleButton("helpbox_analisis_capacidad_button",icon("question"),size='xs')),
                                  uiOutput("helpbox_analisis_capacidad"),
                                  plotOutput("analisis", height=4000) %>% withSpinner()
                                  
                         ),
-                        tabPanel("Simulación", 
-                                 h4(strong('Simulación')),
+                        tabPanel(translator$t("Simulation"), 
+                                 h4(strong(translator$t("Simulation"))),
                                  plotOutput("res.condicional") %>% withSpinner(),
                                  plotOutput("res.incondicional") %>% withSpinner()
                         )
@@ -329,19 +349,19 @@ ui <- fluidPage(
     
     # fluidRow(
     #     column(
-    #         
+    # 
     #         tabsetPanel(type = "tabs",
     #                     tabPanel("Capacidades",
     #                              br(),
-    #                              dataTableOutput("table.capacidades")                             
+    #                              dataTableOutput("table.capacidades")
     #                     ),
     #                     tabPanel("Casos",
     #                              br(),
-    #                              dataTableOutput("table.casos") 
+    #                              dataTableOutput("table.casos")
     #                     ),
     #                     tabPanel("Hospitalizados",
     #                              br(),
-    #                              dataTableOutput("table.hospitalizados") 
+    #                              dataTableOutput("table.hospitalizados")
     #                     )
     #         ),
     #     width = 12  )
@@ -352,31 +372,34 @@ ui <- fluidPage(
 
 # Define server logic ----
 server <- function(input, output, session) {
+    # ---- Actualizar traducciones ----
+    observeEvent(input$selected_language, {
+        shiny.i18n::update_lang(session, input$selected_language)
+    })
+    
+    # ---- Comentarios de ayuda ----´
     output$helpbox_simulacion = renderUI({
         if (input$helpbox_simulacion_button %% 2){
-            helpText("Estas variables guían el sistema de simulación. Se realizarán N simulaciones, cada una con J individuos y K días. Estas simulaciones se repartirán en bloques o tandas de simulación, las cuales serán paralelizadas entre los hilos seleccionados." )
+            helpText(translator$t("These variables guide the simulation system. It will use N simulations, each with J individuals and K days. These simulations will be split in groups and divided among the selected threads."))
         } else {
             return()
         }
     })
     output$helpbox_probabilidades = renderUI({
         if (input$helpbox_probabilidades_button %% 2){
-            helpText("El sistema simula el estado de cada paciente a lo largo de los días (Hospital, UCI, salida o muerte). 
-                     La transición entre cada estado viene dada por estas variables.")
+            helpText(translator$t("The system simulates the state of each patient across the selected days (Hospital, ICU, discharge or death). The transition between each state is given by these variables."))
         } else {
             return()
         }
     })
     output$helpbox_analisis_capacidad = renderUI({
         if (input$helpbox_analisis_capacidad_button %% 2){
-            helpText("El análisis indica para cada hospital y unidad (UCI, convencional...) la capacidad de esta (negro), 
-                     el número de camas ocupadas (COVID, rojo o no COVID, azul), 
-                     el área donde se mueve la cantidad de camas disponibles (morado) y 
-                     los días en los que se superaron algún límite (columnas rojas).")
+            helpText(translator$t("The analysis indicates, for each hospital and unit (ICU, conventional), its capacity (black), the number of occupied beds (COVID, red or non Covid, blue), the area where the avaliable beds  orbit (purple) and the days where a limit was achieved (red columns)."))
         } else {
             return()
         }
     })
+    
     ##############################################################
     # ---- Casos y hospitalizados ----
     casos.filter <- reactive({
