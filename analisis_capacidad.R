@@ -10,7 +10,7 @@ library(glue)
 library(dplyr)
 
 #  ---- Variables de datos ----
-# area.sanitaria <- "Coruña - Cee" # c('Ourense - Verín - O Barco de Valdeorras', 'Coruña - Cee') # si se pone 'all' se eligen todas
+# area.sanitaria <- "all" # "Coruña - Cee" # c('Ourense - Verín - O Barco de Valdeorras', 'Coruña - Cee') # si se pone 'all' se eligen todas
 hosp.ref <- 1 # qué hospitales se seleccionan (1: referencias, 0: no referencias, 'all': todos)
 areas.hospitales <- data.frame(read_csv("datos/areas_hospitales_correspondencia.csv"))
 capacidad <- data.frame(read_csv("datos/capacidadasistencial.csv", locale = locale(encoding = "ISO-8859-1"))) # capacidad asistencial
@@ -66,16 +66,60 @@ create.table(capacidad, 'Capacidades')
 # Añadir total de ocupadas
 capacidad$total_ocupadas <- capacidad$ocupadas_covid19 + capacidad$ocupadas_no_covid19
 
+# ---- Función de filtrado de outliers ----
+filter.outliers <- function(df, filter.type, sel.col){
+  if (filter.type=='boxplot'){
+    # -- Método simple (por boxplot) --
+    outliers <- boxplot(df[[sel.col]], plot=FALSE)$out
+    
+  } else if (filter.type=='extended'){
+    # -- Método más refinado (boxplot y quedarse con los que no se separen más de un 10% de los valores del Q1 y Q3) --
+    outliers <- boxplot(df[[sel.col]], plot=FALSE)$out
+    
+    # Calcular los límites típicos para que un valor sea considerado outlier
+    quantiles <- quantile(df[[sel.col]], probs=c(0.1, 0.9), na.rm = TRUE)
+    iqr <- IQR(df[[sel.col]], na.rm=TRUE)
+    low <- quantiles[1]-1.5*iqr
+    up <-  quantiles[2]+1.5*iqr  
+    
+    # Calcular el límite extendido (límite + límite*porcentaje)
+    extra.pct <- 0.15
+    lower <- low-low*extra.pct
+    upper <- up+up*extra.pct
+    
+    # Filtrar los outliers
+    cond <- outliers >= lower & outliers <= upper # ver cuáles se encuentran en el rango extendido de lower y upper
+    outliers <- outliers[!cond] # quitar los que se encuentran en ese rango
+  }
+  
+  # Eliminar outliers
+  if (length(outliers)!=0){ # si hay algún outlier
+    df <- df[-which(df[[sel.col]] %in% outliers),] # quitar las filas del dataset con los que hayan sido outliers
+  }
+  
+  print(glue('Se eliminan {length(outliers)} outliers de {sel.col} ({h} - {u})\n'))
+  return(df)
+  
+}
+
+# df <- subset(capacidad, hospital=='HOSPITAL HM ROSALEDA - HM LA ESPERANZA' & unidad=='Hospitalización convencional')
+# tmp <- filter.outliers(df, filter.type='extended', sel.col='total_camas')
+
 
 # ---- Capacidad en cada hospital ----
+# Quitar la unidad de centro no sanitario porque no aporta nada
+capacidad <- subset(capacidad, unidad!='Centros no sanitarios')
+
 # Hospitales
 hospitales <- sort(unique(capacidad$hospital))
 
 # Unidades
 unidades <- sort(unique(capacidad$unidad))
 
+
 # Lista para guardar dataframes de cada hospital con la unidad y cuentas
 hospital.capacity.stats <- list()
+
 
 par(mfrow=c(1,3), mar=c(5,4,6,2))
 for (h in hospitales){
@@ -88,7 +132,15 @@ for (h in hospitales){
     # Total de camas de este hospital por unidad y ordenadas por fecha
     datos <- subset(capacidad, hospital==h & unidad==u)
     datos <- datos[order(datos$fecha_envio),]
+    
+    # Filtrar outliers del total de camas
+    cat('---------------\n')
+    datos <- filter.outliers(datos, filter.type='extended', sel.col='total_camas')
+    datos <- filter.outliers(datos, filter.type='boxplot', sel.col='total_ocupadas')
+    datos <- filter.outliers(datos, filter.type='boxplot', sel.col='ocupadas_covid19')
+    datos <- filter.outliers(datos, filter.type='boxplot', sel.col='ocupadas_no_covid19')
 
+    # Variables repetidas
     tot <- datos$total_camas
     fechas <- datos$fecha_envio
     tot.ocupadas <- datos$total_ocupadas
@@ -192,7 +244,6 @@ for (h in hospitales){
     
     # Meter resultados en la lista
     hospital.capacity.stats[[h]][[u]] <- c(mediana, percentiles[['10%']], percentiles[['90%']])
-    
   }
   
 }
