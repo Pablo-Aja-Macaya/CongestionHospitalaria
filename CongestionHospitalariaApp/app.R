@@ -240,6 +240,9 @@ ui <- fluidPage(
                         padding: 0; 
                         margin: 0;
                     }
+                    a{
+                        color: #008080;
+                    }
                     '
                     )), # color de highlight de tabla
     tags$style(".fa-quesion {color: black}"),
@@ -261,7 +264,7 @@ ui <- fluidPage(
                    column(4,actionButton("automatic.var",translator$t("Default variables"), 
                                          ), align='center'),
                    column(4,actionButton("ejecutar_simulacion",translator$t("Execute simulation"), icon("paper-plane"), 
-                                          style="color: #fff; background-color: #337ab7; border-color: #2e6da4;"), align='center'), 
+                                          style="color: #fff; background-color: #008080; border-color: #2e6da4;"), align='center'), 
                ),
 
         )
@@ -404,7 +407,14 @@ ui <- fluidPage(
                 ),
                 # ---- Imagen citic ----
                 hr(),
-                img(src='logo_citic.png', align = "center", width="70%", style="display: block; margin-left: auto; margin-right: auto;"),
+                img(src='logo_citic.png', align = "center", width="60%", style="display: block; margin-left: auto; margin-right: auto;"),
+                br(),
+                img(src='logo_gain.png', align = "center", width="60%", style="display: block; margin-left: auto; margin-right: auto;"),
+                br(),
+                img(src='logo_feder.jpg', align = "center", width="60%", style="display: block; margin-left: auto; margin-right: auto;"),
+                br(),
+                img(src='logo_xunta.png', align = "center", width="60%", style="display: block; margin-left: auto; margin-right: auto;"),
+                
                 width=3)            
         ),
 
