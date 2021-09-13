@@ -12,6 +12,7 @@ library(dplyr)
 #  ---- Variables de datos ----
 # area.sanitaria <- "all" # "Coruña - Cee" # c('Ourense - Verín - O Barco de Valdeorras', 'Coruña - Cee') # si se pone 'all' se eligen todas
 hosp.ref <- 1 # qué hospitales se seleccionan (1: referencias, 0: no referencias, 'all': todos)
+# outlier.filter.type <- 'sliding_median' # tipo de filtro de outliers
 areas.hospitales <- data.frame(read_csv("datos/areas_hospitales_correspondencia.csv"))
 capacidad <- data.frame(read_csv("datos/capacidadasistencial.csv", locale = locale(encoding = "ISO-8859-1"))) # capacidad asistencial
 names(capacidad) <- tolower(names(capacidad))
@@ -62,12 +63,8 @@ capacidad <- filter.ref(capacidad, hosp.ref)
 
 create.table(capacidad, 'Capacidades')
 
-# ---- Calculos previos ----
-# Añadir total de ocupadas
-capacidad$total_ocupadas <- capacidad$ocupadas_covid19 + capacidad$ocupadas_no_covid19
-
 # ---- Función de filtrado de outliers ----
-filter.outliers <- function(df, filter.type, sel.col){
+filter.outliers <- function(df, filter.type, sel.col, h, u){
   if (filter.type=='boxplot'){
     # -- Método simple (por boxplot) --
     outliers <- boxplot(df[[sel.col]], plot=FALSE)$out
@@ -90,6 +87,10 @@ filter.outliers <- function(df, filter.type, sel.col){
     # Filtrar los outliers
     cond <- outliers >= lower & outliers <= upper # ver cuáles se encuentran en el rango extendido de lower y upper
     outliers <- outliers[!cond] # quitar los que se encuentran en ese rango
+    
+  } else if (filter.type=='sliding_median'){
+    df[[sel.col]] <- rollapply(df[[sel.col]], width=5, FUN=median, align='left', fill=NA)
+    return(df)
   }
   
   # Eliminar outliers
@@ -101,10 +102,6 @@ filter.outliers <- function(df, filter.type, sel.col){
   return(df)
   
 }
-
-# df <- subset(capacidad, hospital=='HOSPITAL HM ROSALEDA - HM LA ESPERANZA' & unidad=='Hospitalización convencional')
-# tmp <- filter.outliers(df, filter.type='extended', sel.col='total_camas')
-
 
 # ---- Capacidad en cada hospital ----
 # Quitar la unidad de centro no sanitario porque no aporta nada
@@ -135,11 +132,13 @@ for (h in hospitales){
     
     # Filtrar outliers del total de camas
     cat('---------------\n')
-    datos <- filter.outliers(datos, filter.type='extended', sel.col='total_camas')
-    datos <- filter.outliers(datos, filter.type='boxplot', sel.col='total_ocupadas')
-    datos <- filter.outliers(datos, filter.type='boxplot', sel.col='ocupadas_covid19')
-    datos <- filter.outliers(datos, filter.type='boxplot', sel.col='ocupadas_no_covid19')
+    datos <- filter.outliers(datos, filter.type=outlier.filter.type, sel.col='total_camas', h, u)
+    datos <- filter.outliers(datos, filter.type=outlier.filter.type, sel.col='ocupadas_covid19', h, u)
+    datos <- filter.outliers(datos, filter.type=outlier.filter.type, sel.col='ocupadas_no_covid19', h, u)
 
+    # Añadir total de ocupadas
+    datos$total_ocupadas <- datos$ocupadas_covid19 + datos$ocupadas_no_covid19
+    
     # Variables repetidas
     tot <- datos$total_camas
     fechas <- datos$fecha_envio

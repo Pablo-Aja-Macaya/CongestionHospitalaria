@@ -99,6 +99,8 @@ filter.ref <- function(df, ref){
         return(subset(df, referencia==0))
     }
 }
+
+
 # ---- Examen de días por encima del límite ----
 check.hosp.capacity <- function(hosp, icu, neto, t, cap.stats, time){
     par(mfrow=c(1,1))
@@ -142,6 +144,49 @@ check.hosp.capacity <- function(hosp, icu, neto, t, cap.stats, time){
     
 }
 
+
+# ---- Función de filtrado de outliers ----
+filter.outliers <- function(df, filter.type, sel.col, h, u){
+    if (filter.type=='boxplot'){
+        # -- Método simple (por boxplot) --
+        outliers <- boxplot(df[[sel.col]], plot=FALSE)$out
+        
+    } else if (filter.type=='extended'){
+        # -- Método más refinado (boxplot y quedarse con los que no se separen más de un 10% de los valores del Q1 y Q3) --
+        outliers <- boxplot(df[[sel.col]], plot=FALSE)$out
+        
+        # Calcular los límites típicos para que un valor sea considerado outlier
+        quantiles <- quantile(df[[sel.col]], probs=c(0.1, 0.9), na.rm = TRUE)
+        iqr <- IQR(df[[sel.col]], na.rm=TRUE)
+        low <- quantiles[1]-1.5*iqr
+        up <-  quantiles[2]+1.5*iqr  
+        
+        # Calcular el límite extendido (límite + límite*porcentaje)
+        extra.pct <- 0.15
+        lower <- low-low*extra.pct
+        upper <- up+up*extra.pct
+        
+        # Filtrar los outliers
+        cond <- outliers >= lower & outliers <= upper # ver cuáles se encuentran en el rango extendido de lower y upper
+        outliers <- outliers[!cond] # quitar los que se encuentran en ese rango
+        
+    } else if (filter.type=='sliding_median'){
+        df[[sel.col]] <- rollapply(df[[sel.col]], width=5, FUN=median, align='left', fill=NA)
+        return(df)
+    }
+    
+    # Eliminar outliers
+    if (length(outliers)!=0){ # si hay algún outlier
+        df <- df[-which(df[[sel.col]] %in% outliers),] # quitar las filas del dataset con los que hayan sido outliers
+    }
+    
+    print(glue('Se eliminan {length(outliers)} outliers de {sel.col} ({h} - {u})\n'))
+    return(df)
+    
+}
+
+
+
 #######################
 # ----- Weibull ----- #
 #######################
@@ -169,6 +214,7 @@ translator <- Translator$new(translation_json_path = "./translations/translation
 translator$set_translation_language("en") # lenguaje por defecto
 languages <- list('Español'='es', 'English'='en')
 
+library(markdown)
 ui <- fluidPage(
     # theme = shinytheme("lumen"),
     shinyjs::useShinyjs(),
@@ -178,17 +224,25 @@ ui <- fluidPage(
     tags$style(".fa-quesion {color: black}"),
     add_busy_bar(color = "#008080"),
     
-    
     title=translator$t("Hospital congestion"),
+    
+    br(),
     fluidRow(
-        column(10,
+        column(7,
             titlePanel(h2(strong(translator$t("Hospital congestion")), style = "color:#008080")),
             ),
-        column(2,
-            selectInput('selected_language',
-                        translator$t("Change language"),
-                        choices = languages,
-                        selected = translator$get_key_translation())
+        column(5,
+               fluidRow(
+                   column(4,selectInput('selected_language',
+                                        NULL,
+                                        choices = languages,
+                                        selected = translator$get_key_translation()), align='center'),
+                   column(4,actionButton("automatic.var",translator$t("Default variables"), 
+                                         ), align='center'),
+                   column(4,actionButton("ejecutar_simulacion",translator$t("Execute simulation"), icon("paper-plane"), 
+                                          style="color: #fff; background-color: #337ab7; border-color: #2e6da4;"), align='center'), 
+               ),
+
         )
         # column(2,
         #        actionButton("toggleSidebar", "Toggle sidebar"),
@@ -200,7 +254,7 @@ ui <- fluidPage(
         div(id='Sidebar',
             sidebarPanel(
                 # ---- Variables comunes ----
-                h4(strong(translator$t("Hospital congestion")), style = "color:#008080"),
+                h4(strong(translator$t("Common variables")), style = "color:#008080"),
                 selectInput("area.sanitaria",
                             strong(translator$t("Sanitary area")),
                             choices = c("Coruña - Cee", "Ferrol", "Lugo - A Mariña - Monforte de Lemos",
@@ -211,9 +265,7 @@ ui <- fluidPage(
                 
                 selectInput("hosp.ref",
                             strong(translator$t("Hospitals")),
-                            choices = list('Todos' = 'all',
-                                           "De referencia" = 1,
-                                           "No de referencia" = 0),
+                            choices = list('All'='all'),
                             selected = 'all'),
                 
                 selectInput("modo.weibull",
@@ -221,49 +273,48 @@ ui <- fluidPage(
                             choices = list("Manual/Fórmula" = 'manual',
                                            'Automático' = 'automatico'),
                             selected = 'manual'),
-                # materialSwitch(inputId = "xxx", label = strong("Variables automáticas:"), status = "primary"),
+                
+                selectInput("outlier.filter.type",
+                            strong(translator$t("Outlier removal")),
+                            choices = list('Permissive boxplot'='extended'),
+                            selected = 'extended'),
                 hr(),
                 # ---- Variables de simulación ----
                 h4(strong(translator$t("Simulation variables"), circleButton("helpbox_simulacion_button",icon("question"),size='xs')) , style = "color:#008080"), 
                 uiOutput("helpbox_simulacion"),
                 fluidRow(
-                    column(4,
+                    column(12,
                            numericInput("m", strong(translator$t("Simulations")),
                                         min = 0, max = 2000, value = 100),                     
                     ),
-                    column(4,
+                    column(12,
                            numericInput("n.ind", strong(translator$t("Individuals")),
                                         min = 0, max = 1000, value = 1000),                  
                     ),
-                    column(4,
+                    column(12,
                            numericInput("n.time", strong(translator$t("Days")),
                                         min = 0, max = 300, value = 250),                  
                     ),
                 ),
                 fluidRow(
-                    column(6,
+                    column(12,
                            numericInput("num.cores", strong(translator$t("Threads")),
                                         min = 0, max = 6, value = 4),                     
                     ),
-                    column(6,
+                    column(12,
                            numericInput("par.m.loops", strong(translator$t("Groups")),
                                         min = 1, max = 20, value = 10),                     
                     ),
                 ),
                 fluidRow(
-                    column(6,
+                    column(12,
                            numericInput("inf.time.avg", strong(translator$t("Average day of infection")),
                                         min = 100, max = 200, value = 100),                     
                     ),
-                    column(6,
+                    column(12,
                            numericInput("inf.time.sd", strong(translator$t("Deviation from infection day")),
                                         min = 1, max = 25, value = 10),                     
                     ),
-                ),
-                # ---- Botón de simulación ----
-                fluidRow(
-                    column(12,actionButton("ejecutar_simulacion",translator$t("Execute simulation"), icon("paper-plane"), 
-                                           style="color: #fff; background-color: #337ab7; border-color: #2e6da4;"),align='center')
                 ),
                 hr(),
                 
@@ -272,11 +323,11 @@ ui <- fluidPage(
                 uiOutput("helpbox_probabilidades"),
                 h5(strong(translator$t("Initial probabilities")), style = "color:#008080"),
                 fluidRow(
-                    column(6,
+                    column(12,
                            sliderInput("prob.ICU", strong(translator$t("ICU admission")),
                                        min = 0, max = 1, value = 0.5, ticks=F),                       
                     ),
-                    column(6,
+                    column(12,
                            sliderInput("prob.HW", strong(translator$t("Hospital admission")),
                                        min = 0, max = 1, value = 0.5, ticks=F),                       
                     ),
@@ -284,15 +335,15 @@ ui <- fluidPage(
                 
                 h5(strong(translator$t("Probabilities in hospital")), style = "color:#008080"),
                 fluidRow(
-                    column(4,
+                    column(12,
                            sliderInput("prob.HW.death", strong(translator$t("Death")),
                                        min = 0, max = 1, value = 0.5, ticks=F),                     
                     ),
-                    column(4,
+                    column(12,
                            sliderInput("prob.HW.ICU", strong(translator$t("ICU")),
                                        min = 0, max = 1, value = 0.5, ticks=F),                      
                     ),
-                    column(4,
+                    column(12,
                            sliderInput("prob.HW.disc", strong(translator$t("Discharge")),
                                        min = 0, max = 1, value = 0.5, ticks=F),                    
                     ),
@@ -300,11 +351,11 @@ ui <- fluidPage(
                 
                 h5(strong(translator$t("Probabilities in ICU")), style = "color:#008080"),
                 fluidRow(
-                    column(6,
+                    column(12,
                            sliderInput("prob.ICU.death", strong(translator$t("Death")),
                                        min = 0, max = 1, value = 0.5, ticks=F),                     
                     ),
-                    column(6,
+                    column(12,
                            sliderInput("prob.ICU.HW", strong(translator$t("Hospital")),
                                        min = 0, max = 1, value = 0.5, ticks=F),                     
                     ),
@@ -326,7 +377,7 @@ ui <- fluidPage(
                              min = 0, max = 1, value = 0),
                 hr(),
                 
-            )            
+            width=3)            
         ),
 
 
@@ -337,7 +388,7 @@ ui <- fluidPage(
                         tabPanel(translator$t("Capacity analysis"), 
                                  h4(strong(translator$t("Capacity analysis")),circleButton("helpbox_analisis_capacidad_button",icon("question"),size='xs')),
                                  uiOutput("helpbox_analisis_capacidad"),
-                                 plotOutput("analisis", height=4000) %>% withSpinner()
+                                 plotOutput("analisis") %>% withSpinner()
                                  
                         ),
                         tabPanel(translator$t("Capacities"),
@@ -370,13 +421,12 @@ ui <- fluidPage(
             ),
 
 
-        ),
+        width=9),
     ),
-    # ---- Tablas ----
-    
 
 
 )
+
 
 
 # Define server logic ----
@@ -385,12 +435,53 @@ server <- function(input, output, session) {
     observeEvent(input$selected_language, {
         shiny.i18n::update_lang(session, input$selected_language)
     })
-    # Ocultar sidebar
+    
+    observe({
+        # Actualizar traducciones de variables
+        translator$set_translation_language(input$selected_language)
+        
+        hosp.ref.choices <- list()
+        hosp.ref.choices[[translator$t('All')]] <- 'all'
+        hosp.ref.choices[[translator$t('Refference')]] <- 1
+        hosp.ref.choices[[translator$t('Non refference')]] <- 0
+        updateSelectInput(session, 'hosp.ref', label = NULL, choices = hosp.ref.choices,
+                          selected = NULL)
+        
+        modo.weibull.choices <- list()
+        modo.weibull.choices[[translator$t('Manual/Formula')]] <- 'manual'
+        modo.weibull.choices[[translator$t('Automatic')]] <- 'automatico'
+        updateSelectInput(session, 'modo.weibull', label = NULL, choices = modo.weibull.choices,
+                          selected = NULL)   
+        
+        outlier.removal.choices <- list()
+        outlier.removal.choices[[translator$t('Permissive boxplot')]] <- 'extended'
+        outlier.removal.choices[[translator$t('Typical boxplot')]] <- 'boxplot'
+        outlier.removal.choices[[translator$t('Sliding window median')]] <- 'sliding_median'
+        updateSelectInput(session, 'outlier.filter.type', label = NULL, choices = outlier.removal.choices,
+                          selected = NULL)   
+    })
+
+    # ---- Ocultar sidebar ----
     observeEvent(input$toggleSidebar, {
         shinyjs::toggle(id = "Sidebar")
     })
     
-    # ---- Comentarios de ayuda ----´
+    # ---- Variables automáticas ----
+    observeEvent(input$automatic.var,{
+
+        print('Automáticas')
+        m.value <- 100
+
+        updateNumericInput(session,"m", label = NULL,
+                           min = NULL, max = NULL, value = m.value)
+
+    })
+    
+    # observe({
+    #     if(req())
+    # })
+    
+    # ---- Comentarios de ayuda ----
     output$helpbox_simulacion = renderUI({
         if (input$helpbox_simulacion_button %% 2){
             helpText(translator$t("These variables guide the simulation system. It will use N simulations, each with J individuals and K days. These simulations will be split in groups and divided among the selected threads."))
@@ -504,12 +595,14 @@ server <- function(input, output, session) {
         capacidad <- filter.cap(capacidad.org, input$area.sanitaria)
         # Filtrar por referencia
         capacidad <- filter.ref(capacidad, input$hosp.ref)
-        # Añadir total de ocupadas
-        capacidad$total_ocupadas <- capacidad$ocupadas_covid19 + capacidad$ocupadas_no_covid19
         capacidad
     })
     analisis.capacidad <- reactive({
         capacidad <- capacidad.filter()
+        
+        # Quitar la unidad de centro no sanitario porque no aporta nada
+        capacidad <- subset(capacidad, unidad!='Centros no sanitarios')
+        
         # Hospitales
         hospitales <- sort(unique(capacidad$hospital))
         
@@ -519,10 +612,10 @@ server <- function(input, output, session) {
         # Lista para guardar dataframes de cada hospital con la unidad y cuentas
         hospital.capacity.stats <- list()
         
-        par(mfrow=c(length(hospitales)*4,2))
-        par(mfrow=c(length(hospitales)*4,3), mar=c(5,4,6,2))
+        par(mfrow=c(length(hospitales)*3,3), mar=c(5,4,6,2))
         for (h in hospitales){
             plot.tittle.line <- 1
+            outlier.filter.type <- input$outlier.filter.type
             # Inicialización de dataframe de unidades*medidas para el hospital
             hospital.capacity.stats[[h]] <- data.frame(matrix(ncol = length(unidades), nrow = 3))
             names(hospital.capacity.stats[[h]]) <- unidades
@@ -532,6 +625,16 @@ server <- function(input, output, session) {
                 datos <- subset(capacidad, hospital==h & unidad==u)
                 datos <- datos[order(datos$fecha_envio),]
                 
+                # Filtrar outliers del total de camas
+                # cat('---------------\n')
+                # datos <- filter.outliers(datos, filter.type='extended', sel.col='total_camas', h, u)
+                # datos <- filter.outliers(datos, filter.type='boxplot', sel.col='ocupadas_covid19', h, u)
+                # datos <- filter.outliers(datos, filter.type='boxplot', sel.col='ocupadas_no_covid19', h, u)
+                
+                # Añadir total de ocupadas
+                datos$total_ocupadas <- datos$ocupadas_covid19 + datos$ocupadas_no_covid19
+                
+                # Variables repetidas
                 tot <- datos$total_camas
                 fechas <- datos$fecha_envio
                 tot.ocupadas <- datos$total_ocupadas
@@ -552,42 +655,42 @@ server <- function(input, output, session) {
                 title(sub=paste('Percentil 90:', percentiles[['90%']]), adj=1, line=4, font=2,cex.sub = 0.75)
                 title("Histograma de camas", line = plot.tittle.line)
                 
-                # -- Plot de número de camas a lo largo de la pandemia ----
-                plot(total_camas ~ fecha_envio, datos, ylim=c(0,max(tot, na.rm=T)+max(tot, na.rm=T)*0.25), xaxt = "n", type = "l", main=NA, xlab=NA, ylab='Camas')
-                # Columnas rojas (días donde se sobrepasa una de las estadísticas)
-                # Cuanto más rojizas más gravedad
-                for (d in min.sobrepasado){
-                    rect(d-1, 0-20,
-                         d+1, max(tot, na.rm=T)+80,
-                         col= rgb(1,0,0,alpha=0.05), lwd=0)
-                }
-                for (d in max.sobrepasado){
-                    rect(d-1, 0-20,
-                         d+1, max(tot, na.rm=T)+80,
-                         col= rgb(1,0,0,alpha=0.3), lwd=0)
-                }
-                for (d in median.sobrepasado){
-                    rect(d-1, 0-20,
-                         d+1, max(tot, na.rm=T)+80,
-                         col= rgb(1,0,0,alpha=0.15), lwd=0)
-                }
-                # Área entre percentil10 y percentil90
-                rect(fechas[1]-20,percentiles[['10%']],
-                     fechas[length(fechas)]+20,percentiles[['90%']],
-                     col= rgb(0,0,1,alpha=0.05), lwd=0)
-                # Datos de ocupación
-                lines(ocupadas_no_covid19 ~ fecha_envio, datos, type="l",lty=1, lwd=1, col='blue')
-                lines(ocupadas_covid19 ~ fecha_envio, datos, type="l",lty=1, lwd=1, col='red')
-                lines(total_ocupadas ~ fecha_envio, datos, type="l",lty=1, lwd=1, col='green')
-                abline(h=mediana, col='darkorchid', lty=1)
-                # abline(h=percentiles[['10%']], col='deeppink', lty=5)
-                # abline(h=percentiles[['90%']], col='darkslateblue', lty=5)
-
-                axis.Date(1, at=seq(min(fechas), max(fechas), length.out=10), format='%b %Y', las=2, cex.axis=0.8)
-                legend('topright',legend = c('Total camas','Total ocupadas','Ocupadas por COVID','Ocupadas por no COVID','Mediana total camas'),
-                       col = c("black","green", "red", "blue", "darkorchid"), lwd = 2, xpd = TRUE, cex = 0.5, bty = 'n')
-
-                title("Total de camas", line = plot.tittle.line)
+                # # -- Plot de número de camas a lo largo de la pandemia ----
+                # plot(total_camas ~ fecha_envio, datos, ylim=c(0,max(tot, na.rm=T)+max(tot, na.rm=T)*0.25), xaxt = "n", type = "l", main=NA, xlab=NA, ylab='Camas')
+                # # Columnas rojas (días donde se sobrepasa una de las estadísticas)
+                # # Cuanto más rojizas más gravedad
+                # for (d in min.sobrepasado){
+                #     rect(d-1, 0-20,
+                #          d+1, max(tot, na.rm=T)+80,
+                #          col= rgb(1,0,0,alpha=0.05), lwd=0)
+                # }
+                # for (d in max.sobrepasado){
+                #     rect(d-1, 0-20,
+                #          d+1, max(tot, na.rm=T)+80,
+                #          col= rgb(1,0,0,alpha=0.3), lwd=0)
+                # }
+                # for (d in median.sobrepasado){
+                #     rect(d-1, 0-20,
+                #          d+1, max(tot, na.rm=T)+80,
+                #          col= rgb(1,0,0,alpha=0.15), lwd=0)
+                # }
+                # # Área entre percentil10 y percentil90
+                # rect(fechas[1]-20,percentiles[['10%']],
+                #      fechas[length(fechas)]+20,percentiles[['90%']],
+                #      col= rgb(0,0,1,alpha=0.05), lwd=0)
+                # # Datos de ocupación
+                # lines(ocupadas_no_covid19 ~ fecha_envio, datos, type="l",lty=1, lwd=1, col='blue')
+                # lines(ocupadas_covid19 ~ fecha_envio, datos, type="l",lty=1, lwd=1, col='red')
+                # lines(total_ocupadas ~ fecha_envio, datos, type="l",lty=1, lwd=1, col='green')
+                # abline(h=mediana, col='darkorchid', lty=1)
+                # # abline(h=percentiles[['10%']], col='deeppink', lty=5)
+                # # abline(h=percentiles[['90%']], col='darkslateblue', lty=5)
+                # 
+                # axis.Date(1, at=seq(min(fechas), max(fechas), length.out=10), format='%b %Y', las=2, cex.axis=0.8)
+                # legend('topright',legend = c('Total camas','Total ocupadas','Ocupadas por COVID','Ocupadas por no COVID','Mediana total camas'),
+                #        col = c("black","green", "red", "blue", "darkorchid"), lwd = 2, xpd = TRUE, cex = 0.5, bty = 'n')
+                # 
+                # title("Total de camas", line = plot.tittle.line)
 
                 
                 # -- Plot de porcentaje de ocupación a lo largo de la pandemia ----
@@ -634,6 +737,82 @@ server <- function(input, output, session) {
                 
                 # title(glue('{h} \n({u})'), line = -3, outer = TRUE) # título general (hospital y unidad)
                 
+                
+                ##############################################
+                # Total de camas de este hospital por unidad y ordenadas por fecha
+                datos <- subset(capacidad, hospital==h & unidad==u)
+                datos <- datos[order(datos$fecha_envio),]
+                
+                # Filtrar outliers del total de camas
+                # cat('---------------\n')
+                datos <- filter.outliers(datos, filter.type=outlier.filter.type, sel.col='total_camas', h, u)
+                datos <- filter.outliers(datos, filter.type=outlier.filter.type, sel.col='ocupadas_covid19', h, u)
+                datos <- filter.outliers(datos, filter.type=outlier.filter.type, sel.col='ocupadas_no_covid19', h, u)
+
+                # Añadir total de ocupadas
+                datos$total_ocupadas <- datos$ocupadas_covid19 + datos$ocupadas_no_covid19
+                
+                # Variables repetidas
+                tot <- datos$total_camas
+                fechas <- datos$fecha_envio
+                tot.ocupadas <- datos$total_ocupadas
+                
+                # Mediana y percentiles
+                mediana <- median(tot, na.rm=T)
+                percentiles <- quantile(tot, probs = seq(0, 1, by= 0.1), na.rm=T)
+                
+                # Calcular en qué puntos se vería sobrepasado el hospital
+                min.sobrepasado <- fechas[which(tot.ocupadas>percentiles[['10%']])]
+                max.sobrepasado <- fechas[which(tot.ocupadas>percentiles[['90%']])]
+                median.sobrepasado <- fechas[which(tot.ocupadas>mediana)]
+                
+                # -- Plot de porcentaje de ocupación a lo largo de la pandemia ----
+                ocupados.covid.pct <- (datos$ocupadas_covid19/datos$total_camas)*100
+                ocupados.nocovid.pct <- (datos$ocupadas_no_covid19/datos$total_camas)*100
+                ocupados.total.pct <- ((datos$ocupadas_covid19+datos$ocupadas_no_covid19)/datos$total_camas)*100
+                df.ocupados.pct <- data.frame(ocupados.covid.pct, ocupados.nocovid.pct, ocupados.total.pct, fecha_envio=datos$fecha_envio)
+                
+                plot(ocupados.covid.pct ~ fecha_envio, df.ocupados.pct, ylim=c(0,100), xaxt = "n", type = "l", main=glue('{h} \n({u})'), xlab=NA, ylab='Ocupación (%)', col='red')
+                
+                add.risk.scale = function(u){
+                    # https://www.mscbs.gob.es/profesionales/saludPublica/ccayes/alertasActual/nCov/documentos/Actuaciones_respuesta_COVID_26.03.2021.pdf
+                    # Dependiendo de la unidad el porcentaje de ocupación es más o menos preocupante
+                    if (u %in% c('Hospitalización convencional')){
+                        risks <- data.frame(nueva.normalidad = c(0,2), bajo = c(2,5),
+                                            medio = c(5,10), alto = c(10,15), muy.alto = c(15,100))
+                    } else if (u %in% c('U. Críticas CON respirador','U. Críticas SIN respirador')){
+                        risks <- data.frame(nueva.normalidad = c(0,5), bajo = c(5,10),
+                                            medio = c(10,15), alto = c(15,25), muy.alto = c(25,100))
+                    } else {return(NULL)}
+                    # Se añade el color a cada nivel
+                    risk.alpha <- 0.05
+                    risks <- rbind(risks, c(rgb(0,1,0,alpha=risk.alpha), rgb(1,1,0,alpha=risk.alpha),
+                                            rgb(1,0.7,0,alpha=risk.alpha), rgb(1,0,1,alpha=risk.alpha),
+                                            rgb(1,0,0,alpha=risk.alpha)))
+                    # Dibujo de áreas de riesgo en el color correspondiente
+                    apply(risks, 2, function(l){
+                        rect(fechas[1], l[1],
+                             fechas[length(fechas)], l[2],
+                             col= l[3], lwd=0.08)   
+                        
+                    })
+                    # Datos se ponen ahora para pisar los cuadros de color
+                    lines(ocupados.covid.pct ~ fecha_envio, df.ocupados.pct, type="l",lty=1, lwd=1, col='red')
+                    lines(ocupados.nocovid.pct ~ fecha_envio, df.ocupados.pct, type="l",lty=1, lwd=1, col='blue')
+                    lines(ocupados.total.pct ~ fecha_envio, df.ocupados.pct, type="l",lty=1, lwd=1, col='green')
+                    
+                }
+                add.risk.scale(u)
+                
+                axis.Date(1, at=seq(min(fechas), max(fechas), length.out=10), format='%b %Y', las=2, cex.axis=0.8)   
+                
+                title("Porcentaje de ocupación (Outliers quitados)", line = plot.tittle.line)
+                
+                # title(glue('{h} \n({u})'), line = -3, outer = TRUE) # título general (hospital y unidad)
+                
+                
+                
+                
                 # Meter resultados en la lista
                 hospital.capacity.stats[[h]][[u]] <- c(mediana, percentiles[['10%']], percentiles[['90%']])
                 
@@ -664,7 +843,8 @@ server <- function(input, output, session) {
         area.capacity.stats <- rbind(df_median, df_p10, df_p90)
         capacidades$area.capacity.stats <- area.capacity.stats
     })
-    output$analisis <- renderPlot(analisis.capacidad(), height = 3000)
+
+    output$analisis <- renderPlot(analisis.capacidad(), height=3000)
     
     ##############################################################
     # ---- Probabilidades de simulación ----
@@ -696,7 +876,7 @@ server <- function(input, output, session) {
     # ---- Simulaciones ----
     resultados <- reactiveValues()
     observeEvent(input$ejecutar_simulacion,{
-        updateTabsetPanel(session = session, inputId = "tabset_resultados", selected = "Análisis capacidad")
+        updateTabsetPanel(session = session, inputId = "tabset_resultados", selected = translator$t("Capacity analysis"))
         # Proporciones
         prob.rc.real <- proporciones$prob.rc.real
         prob.rc.woman <- proporciones$prob.rc.woman
@@ -1202,7 +1382,7 @@ server <- function(input, output, session) {
         resultados$nHOS.inc <- nHOS.inc
         resultados$nICU.inc <- nICU.inc
 
-        
+        updateTabsetPanel(session = session, inputId = "tabset_resultados", selected = translator$t("Simulation"))
     }, priority=3)
     
     plot.condicional.res <- reactive({

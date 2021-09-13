@@ -18,6 +18,8 @@
       
       {"en": "Common variables", "es": "Variables comunes"},
       {"en": "Sanitary area", "es": "Área sanitaria"},
+      
+      {"en":"Default variables", "es":"Variables por defecto"},
 
       {"en": "Hospitals", "es": "Hospitales"},
       {"en": "All", "es": "Todos"},
@@ -25,9 +27,13 @@
       {"en": "Non refference", "es": "No de referencia"},
 
       {"en": "Weibull calculations", "es": "Cálculo Weibull"},
-      {"en": "Manual/Formula", "es": "Manual/Formula"},
+      {"en": "Manual/Formula", "es": "Manual/Fórmula"},
       {"en": "Automatic", "es": "Automático"},
 
+      {"en": "Outlier removal", "es": "Quitar outliers"},
+      {"en": "Permissive boxplot", "es": "Boxplot permisivo"},
+      {"en": "Typical boxplot", "es": "Boxplot típico"},
+      {"en": "Sliding window median", "es": "Mediana con desplazamiento de ventana"},
       
       {"en": "Simulation variables", "es": "Variables de simulación"},
       {

@@ -68,7 +68,11 @@ par.m.loops <- 10 # cuántas tandas
 par.m.size <- m/par.m.loops # cuántas simulaciones por núcleo
 
 #  Variables de datos
+outlier.filter.type <- 'sliding_median' # tipo de filtro de outliers
 area.sanitaria <- "Ferrol" # c('Ourense - Verín - O Barco de Valdeorras', 'Coruña - Cee') # si se pone 'all' se eligen todas
+modo.weibull <- 'manual' # 'automatico', 'manual' (manual/formula)
+inf.time.avg <- 100 # dia medio donde ocurre la infección
+inf.time.sd <- 20 # desviación estándard del día donde ocurre la infección
 hosp.ref <- 1 # qué hospitales se seleccionan (1: referencias, 0: no referencias, 'all': todos)
 areas.hospitales <- data.frame(read_csv("datos/areas_hospitales_correspondencia.csv")) # correspondencia entre hospital y área
 casos.org <- data.frame(read_csv("datos/sivies_agreg_area_sanitaria.csv")) # casos base

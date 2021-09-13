@@ -5,8 +5,16 @@
   # - Simulacion
 
 # Notas:
-# - Calcular weibull a partir de los datos antiguos, pero aún así dejar cambiar los valores
-
+# V Gráfica que muestre el porcentaje de ocupación por día
+# - La gráfica de simulación poner las UCIs juntas porque la simulación no puede distinguir entre cada una. 
+#   Hay que calcular sus medianas y demás como si fuese un sólo grupo UCI
+# V Implementar limpieza de datos de dos tipos:
+#   - Quitando outliers mediante boxplots
+#   - Quitando outliers mediante boxplots, conservando los que tengan un valor cercano al primer y tercer cuartil cuando estos son iguales
+#     Ej: todo 30s, dos 28s, dos 32s y un 300 --> El primer y tercer cuartil será 30, pero queremos conservar los 28s y 32s y quitar sólo el 300
+#   - O opción que no los filtre
+# - Smoothear las gráficas con sliding window después de quitar outliers (https://stats.stackexchange.com/questions/3051/mean-of-a-sliding-window-in-r)
+# - Intentar comprobar a qué área sanitaria pertenece cada concello (igual un concello está dentro de una pero más cerca de otra, asegurarse)
 
 library(Rlab)
 library(data.table)
@@ -33,6 +41,7 @@ par.m.size <- m/par.m.loops # cuántas simulaciones por núcleo
 
 
 #  Variables de datos
+outlier.filter.type <- 'sliding_median' # tipo de filtro de outliers
 modo.weibull <- 'manual' # 'automatico', 'manual' (manual/formula)
 inf.time.avg <- 100 # dia medio donde ocurre la infección
 inf.time.sd <- 20 # desviación estándard del día donde ocurre la infección
@@ -174,7 +183,7 @@ prob.HW.ICU <- sum(subset(hospitalizados, ingreso_hospitalario=='Si' & ingreso_u
 prob.HW.disc <- sum(subset(hospitalizados, ingreso_hospitalario=='Si' & ingreso_uci=='No')$cantidad, na.rm=T) / sum(hospitalizados$cantidad, na.rm=T)
 
 
-# -- Opciones en UCI-- #
+# -- Opciones en UCI -- #
 # Probabilidad de morir tras ser admitido en UCI
 prob.ICU.death <- mean(subset(hospitalizados, ingreso_uci=='Si')$proporcion_muertos, na.rm=T)
 
