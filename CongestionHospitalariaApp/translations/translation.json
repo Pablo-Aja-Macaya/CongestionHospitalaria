@@ -33,7 +33,9 @@
       {"en": "Outlier removal", "es": "Quitar outliers"},
       {"en": "Permissive boxplot", "es": "Boxplot permisivo"},
       {"en": "Typical boxplot", "es": "Boxplot típico"},
-      {"en": "Sliding window median", "es": "Mediana con desplazamiento de ventana"},
+      {"en": "Sliding window median", "es": "Desplazamiento de ventana con mediana"},
+      {"en": "Sliding window average", "es": "Desplazamiento de ventana con media"},
+      {"en": "None", "es": "Ninguno"},
       
       {"en": "Simulation variables", "es": "Variables de simulación"},
       {

@@ -147,7 +147,12 @@ check.hosp.capacity <- function(hosp, icu, neto, t, cap.stats, time){
 
 # ---- Función de filtrado de outliers ----
 filter.outliers <- function(df, filter.type, sel.col, h, u){
-    if (filter.type=='boxplot'){
+    outliers <- c() # inicializar outliers (shiny protesta si no se hace)
+    
+    if (is.na(filter.type)){
+        return(df)
+        
+    } else if (filter.type=='boxplot'){
         # -- Método simple (por boxplot) --
         outliers <- boxplot(df[[sel.col]], plot=FALSE)$out
         
@@ -172,6 +177,10 @@ filter.outliers <- function(df, filter.type, sel.col, h, u){
         
     } else if (filter.type=='sliding_median'){
         df[[sel.col]] <- rollapply(df[[sel.col]], width=5, FUN=median, align='left', fill=NA)
+        return(df)
+        
+    } else if (filter.type=='sliding_mean'){
+        df[[sel.col]] <- rollapply(df[[sel.col]], width=5, FUN=mean, align='left', fill=NA)
         return(df)
     }
     
@@ -457,6 +466,8 @@ server <- function(input, output, session) {
         outlier.removal.choices[[translator$t('Permissive boxplot')]] <- 'extended'
         outlier.removal.choices[[translator$t('Typical boxplot')]] <- 'boxplot'
         outlier.removal.choices[[translator$t('Sliding window median')]] <- 'sliding_median'
+        outlier.removal.choices[[translator$t('Sliding window average')]] <- 'sliding_mean'
+        outlier.removal.choices[[translator$t('None')]] <- NA
         updateSelectInput(session, 'outlier.filter.type', label = NULL, choices = outlier.removal.choices,
                           selected = NULL)   
     })
