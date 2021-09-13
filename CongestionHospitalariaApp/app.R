@@ -10,6 +10,8 @@ library(shinybusy)
 library(shinythemes)
 library(shinyWidgets)
 library(shiny.i18n)
+library(shinyBS)
+
 # Simulación
 library(Rlab)
 library(data.table)
@@ -229,7 +231,17 @@ ui <- fluidPage(
     shinyjs::useShinyjs(),
     shiny.i18n::usei18n(translator),
 
-    tags$style(HTML('table.dataTable tr.selected td, table.dataTable td.selected {background-color: #008080 !important; color: white !important}')), # color de highlight de tabla
+    tags$style(HTML('table.dataTable tr.selected td, table.dataTable td.selected {
+                        background-color: #008080 !important; color: white !important
+                    }
+                    #sidebar, Sidebar {
+                        background-color: white;
+                        border: 0px solid white;
+                        padding: 0; 
+                        margin: 0;
+                    }
+                    '
+                    )), # color de highlight de tabla
     tags$style(".fa-quesion {color: black}"),
     add_busy_bar(color = "#008080"),
     
@@ -238,7 +250,7 @@ ui <- fluidPage(
     br(),
     fluidRow(
         column(7,
-            titlePanel(h2(strong(translator$t("Hospital congestion")), style = "color:#008080")),
+            titlePanel(h2(strong('CEDCOVID:', translator$t("Hospital congestion")), style = "color:#008080")),
             ),
         column(5,
                fluidRow(
@@ -253,140 +265,147 @@ ui <- fluidPage(
                ),
 
         )
-        # column(2,
-        #        actionButton("toggleSidebar", "Toggle sidebar"),
-        # )
     ),
-    
+    br(),
     # ---- Variables y resultados ----
     sidebarLayout(
         div(id='Sidebar',
-            sidebarPanel(
-                # ---- Variables comunes ----
-                h4(strong(translator$t("Common variables")), style = "color:#008080"),
-                selectInput("area.sanitaria",
-                            strong(translator$t("Sanitary area")),
-                            choices = c("Coruña - Cee", "Ferrol", "Lugo - A Mariña - Monforte de Lemos",
-                                        "Ourense - Verín - O Barco de Valdeorras", "Pontevedra - O Salnés",
-                                        "Santiago de Compostela - Barbanza", "Vigo"),
-                            selected = "Coruña - Cee"
+            sidebarPanel(id='sidebar',
+                bsCollapse(id = "collapseExample", open = "Panel 2",
+                           # ---- Variables comunes ----
+                           bsCollapsePanel(
+                               h4(strong(translator$t("Common variables")), style = "color:#008080"),
+                               selectInput("area.sanitaria",
+                                           strong(translator$t("Sanitary area")),
+                                           choices = c("Coruña - Cee", "Ferrol", "Lugo - A Mariña - Monforte de Lemos",
+                                                       "Ourense - Verín - O Barco de Valdeorras", "Pontevedra - O Salnés",
+                                                       "Santiago de Compostela - Barbanza", "Vigo"),
+                                           selected = "Coruña - Cee"
+                               ),
+                               
+                               selectInput("hosp.ref",
+                                           strong(translator$t("Hospitals")),
+                                           choices = list('All'='all'),
+                                           selected = 'all'),
+                               
+                               selectInput("modo.weibull",
+                                           strong(translator$t("Weibull calculations")),
+                                           choices = list("Manual/Fórmula" = 'manual',
+                                                          'Automático' = 'automatico'),
+                                           selected = 'manual'),
+                               
+                               selectInput("outlier.filter.type",
+                                           strong(translator$t("Outlier removal")),
+                                           choices = list('Permissive boxplot'='extended'),
+                                           selected = 'extended'),
+                               style = "info"),
+                           # ---- Variables de simulación ----
+                           bsCollapsePanel(
+                               h4(strong(translator$t("Simulation variables")), style = "color:#008080"), 
+                               p(strong('Info', style = "color:#008080"), circleButton("helpbox_simulacion_button",icon("question"),size='xs')), 
+                               uiOutput("helpbox_simulacion"),
+                               fluidRow(
+                                   column(12,
+                                          numericInput("m", strong(translator$t("Simulations")),
+                                                       min = 0, max = 2000, value = 100),                     
+                                   ),
+                                   column(12,
+                                          numericInput("n.ind", strong(translator$t("Individuals")),
+                                                       min = 0, max = 1000, value = 1000),                  
+                                   ),
+                                   column(12,
+                                          numericInput("n.time", strong(translator$t("Days")),
+                                                       min = 0, max = 300, value = 250),                  
+                                   ),
+                               ),
+                               fluidRow(
+                                   column(12,
+                                          numericInput("num.cores", strong(translator$t("Threads")),
+                                                       min = 0, max = 6, value = 4),                     
+                                   ),
+                                   column(12,
+                                          numericInput("par.m.loops", strong(translator$t("Groups")),
+                                                       min = 1, max = 20, value = 10),                     
+                                   ),
+                               ),
+                               fluidRow(
+                                   column(12,
+                                          numericInput("inf.time.avg", strong(translator$t("Average day of infection")),
+                                                       min = 100, max = 200, value = 100),                     
+                                   ),
+                                   column(12,
+                                          numericInput("inf.time.sd", strong(translator$t("Deviation from infection day")),
+                                                       min = 1, max = 25, value = 10),                     
+                                   ),
+                               ),
+                               style = "info"),
+                           # ---- Probabilidades ----
+                           bsCollapsePanel(
+                               h4(strong(translator$t("Probabilities"),style = "color:#008080")),
+                               p(strong('Info', style = "color:#008080"), circleButton("helpbox_probabilidades_button",icon("question"),size='xs')),
+                               uiOutput("helpbox_probabilidades"),
+                               h5(strong(translator$t("Initial probabilities")), style = "color:#008080"),
+                               fluidRow(
+                                   column(12,
+                                          sliderInput("prob.ICU", strong(translator$t("ICU admission")),
+                                                      min = 0, max = 1, value = 0.5, ticks=F),                       
+                                   ),
+                                   column(12,
+                                          sliderInput("prob.HW", strong(translator$t("Hospital admission")),
+                                                      min = 0, max = 1, value = 0.5, ticks=F),                       
+                                   ),
+                               ),
+                               
+                               h5(strong(translator$t("Probabilities in hospital")), style = "color:#008080"),
+                               fluidRow(
+                                   column(12,
+                                          sliderInput("prob.HW.death", strong(translator$t("Death")),
+                                                      min = 0, max = 1, value = 0.5, ticks=F),                     
+                                   ),
+                                   column(12,
+                                          sliderInput("prob.HW.ICU", strong(translator$t("ICU")),
+                                                      min = 0, max = 1, value = 0.5, ticks=F),                      
+                                   ),
+                                   column(12,
+                                          sliderInput("prob.HW.disc", strong(translator$t("Discharge")),
+                                                      min = 0, max = 1, value = 0.5, ticks=F),                    
+                                   ),
+                               ),
+                               
+                               h5(strong(translator$t("Probabilities in ICU")), style = "color:#008080"),
+                               fluidRow(
+                                   column(12,
+                                          sliderInput("prob.ICU.death", strong(translator$t("Death")),
+                                                      min = 0, max = 1, value = 0.5, ticks=F),                     
+                                   ),
+                                   column(12,
+                                          sliderInput("prob.ICU.HW", strong(translator$t("Hospital")),
+                                                      min = 0, max = 1, value = 0.5, ticks=F),                     
+                                   ),
+                               ),
+                               style = "info"),
+                           # ---- Proporciones muestrales ----
+                           bsCollapsePanel(
+                               h4(strong(translator$t("Variables calculated from hospital data")), style = "color:#008080"),
+                               dataTableOutput("table.prob.resumen"),
+                               numericInput('prob.w',
+                                            strong(translator$t("Probability of being a woman (prob.w)")),
+                                            min = 0, max = 1, value = 0),
+                               numericInput('prob.m',
+                                            strong(translator$t("Probability of being a man (prob.m)")),
+                                            min = 0, max = 1, value = 0),
+                               numericInput('prob.rc.real',
+                                            strong(translator$t("Hospitalized proportions (prob.rc.real)")),
+                                            min = 0, max = 1, value = 0),
+                               style = "info"
+                            )
+
+                           ########
                 ),
-                
-                selectInput("hosp.ref",
-                            strong(translator$t("Hospitals")),
-                            choices = list('All'='all'),
-                            selected = 'all'),
-                
-                selectInput("modo.weibull",
-                            strong(translator$t("Weibull calculations")),
-                            choices = list("Manual/Fórmula" = 'manual',
-                                           'Automático' = 'automatico'),
-                            selected = 'manual'),
-                
-                selectInput("outlier.filter.type",
-                            strong(translator$t("Outlier removal")),
-                            choices = list('Permissive boxplot'='extended'),
-                            selected = 'extended'),
+                # ---- Imagen citic ----
                 hr(),
-                # ---- Variables de simulación ----
-                h4(strong(translator$t("Simulation variables"), circleButton("helpbox_simulacion_button",icon("question"),size='xs')) , style = "color:#008080"), 
-                uiOutput("helpbox_simulacion"),
-                fluidRow(
-                    column(12,
-                           numericInput("m", strong(translator$t("Simulations")),
-                                        min = 0, max = 2000, value = 100),                     
-                    ),
-                    column(12,
-                           numericInput("n.ind", strong(translator$t("Individuals")),
-                                        min = 0, max = 1000, value = 1000),                  
-                    ),
-                    column(12,
-                           numericInput("n.time", strong(translator$t("Days")),
-                                        min = 0, max = 300, value = 250),                  
-                    ),
-                ),
-                fluidRow(
-                    column(12,
-                           numericInput("num.cores", strong(translator$t("Threads")),
-                                        min = 0, max = 6, value = 4),                     
-                    ),
-                    column(12,
-                           numericInput("par.m.loops", strong(translator$t("Groups")),
-                                        min = 1, max = 20, value = 10),                     
-                    ),
-                ),
-                fluidRow(
-                    column(12,
-                           numericInput("inf.time.avg", strong(translator$t("Average day of infection")),
-                                        min = 100, max = 200, value = 100),                     
-                    ),
-                    column(12,
-                           numericInput("inf.time.sd", strong(translator$t("Deviation from infection day")),
-                                        min = 1, max = 25, value = 10),                     
-                    ),
-                ),
-                hr(),
-                
-                # ---- Probabilidades ----
-                h4(strong(translator$t("Probabilities"), circleButton("helpbox_probabilidades_button",icon("question"),size='xs')),style = "color:#008080"),
-                uiOutput("helpbox_probabilidades"),
-                h5(strong(translator$t("Initial probabilities")), style = "color:#008080"),
-                fluidRow(
-                    column(12,
-                           sliderInput("prob.ICU", strong(translator$t("ICU admission")),
-                                       min = 0, max = 1, value = 0.5, ticks=F),                       
-                    ),
-                    column(12,
-                           sliderInput("prob.HW", strong(translator$t("Hospital admission")),
-                                       min = 0, max = 1, value = 0.5, ticks=F),                       
-                    ),
-                ),
-                
-                h5(strong(translator$t("Probabilities in hospital")), style = "color:#008080"),
-                fluidRow(
-                    column(12,
-                           sliderInput("prob.HW.death", strong(translator$t("Death")),
-                                       min = 0, max = 1, value = 0.5, ticks=F),                     
-                    ),
-                    column(12,
-                           sliderInput("prob.HW.ICU", strong(translator$t("ICU")),
-                                       min = 0, max = 1, value = 0.5, ticks=F),                      
-                    ),
-                    column(12,
-                           sliderInput("prob.HW.disc", strong(translator$t("Discharge")),
-                                       min = 0, max = 1, value = 0.5, ticks=F),                    
-                    ),
-                ),
-                
-                h5(strong(translator$t("Probabilities in ICU")), style = "color:#008080"),
-                fluidRow(
-                    column(12,
-                           sliderInput("prob.ICU.death", strong(translator$t("Death")),
-                                       min = 0, max = 1, value = 0.5, ticks=F),                     
-                    ),
-                    column(12,
-                           sliderInput("prob.ICU.HW", strong(translator$t("Hospital")),
-                                       min = 0, max = 1, value = 0.5, ticks=F),                     
-                    ),
-                ),
-                
-                hr(),
-                
-                # ---- Proporciones muestrales ----
-                h4(strong(translator$t("Variables calculated from hospital data")), style = "color:#008080"),
-                dataTableOutput("table.prob.resumen"),
-                numericInput('prob.w',
-                             strong(translator$t("Probability of being a woman (prob.w)")),
-                             min = 0, max = 1, value = 0),
-                numericInput('prob.m',
-                             strong(translator$t("Probability of being a man (prob.m)")),
-                             min = 0, max = 1, value = 0),
-                numericInput('prob.rc.real',
-                             strong(translator$t("Hospitalized proportions (prob.rc.real)")),
-                             min = 0, max = 1, value = 0),
-                hr(),
-                
-            width=3)            
+                img(src='logo_citic.png', align = "center", width="70%", style="display: block; margin-left: auto; margin-right: auto;"),
+                width=3)            
         ),
 
 
@@ -623,7 +642,7 @@ server <- function(input, output, session) {
         # Lista para guardar dataframes de cada hospital con la unidad y cuentas
         hospital.capacity.stats <- list()
         
-        par(mfrow=c(length(hospitales)*3,3), mar=c(5,4,6,2))
+        par(mfrow=c(length(hospitales)*3,2), mar=c(5,4,6,2))
         for (h in hospitales){
             plot.tittle.line <- 1
             outlier.filter.type <- input$outlier.filter.type
@@ -660,11 +679,11 @@ server <- function(input, output, session) {
                 median.sobrepasado <- fechas[which(tot.ocupadas>mediana)]
                 
                 # -- Histograma ----
-                hist(tot, breaks = 30, main=glue('{h} \n({u})'), col='gray', xlab='Total camas') 
-                title(sub=paste('Mediana:', mediana), adj=1, line=2, font=2,cex.sub = 0.75)
-                title(sub=paste('Percentil 10:', percentiles[['10%']]), adj=1, line=3, font=2,cex.sub = 0.75)
-                title(sub=paste('Percentil 90:', percentiles[['90%']]), adj=1, line=4, font=2,cex.sub = 0.75)
-                title("Histograma de camas", line = plot.tittle.line)
+                # hist(tot, breaks = 30, main=glue('{h} \n({u})'), col='gray', xlab='Total camas') 
+                # title(sub=paste('Mediana:', mediana), adj=1, line=2, font=2,cex.sub = 0.75)
+                # title(sub=paste('Percentil 10:', percentiles[['10%']]), adj=1, line=3, font=2,cex.sub = 0.75)
+                # title(sub=paste('Percentil 90:', percentiles[['90%']]), adj=1, line=4, font=2,cex.sub = 0.75)
+                # title("Histograma de camas", line = plot.tittle.line)
                 
                 # # -- Plot de número de camas a lo largo de la pandemia ----
                 # plot(total_camas ~ fecha_envio, datos, ylim=c(0,max(tot, na.rm=T)+max(tot, na.rm=T)*0.25), xaxt = "n", type = "l", main=NA, xlab=NA, ylab='Camas')
@@ -723,7 +742,7 @@ server <- function(input, output, session) {
                                             medio = c(10,15), alto = c(15,25), muy.alto = c(25,100))
                     } else {return(NULL)}
                     # Se añade el color a cada nivel
-                    risk.alpha <- 0.05
+                    risk.alpha <- 0.1
                     risks <- rbind(risks, c(rgb(0,1,0,alpha=risk.alpha), rgb(1,1,0,alpha=risk.alpha),
                                             rgb(1,0.7,0,alpha=risk.alpha), rgb(1,0,1,alpha=risk.alpha),
                                             rgb(1,0,0,alpha=risk.alpha)))
@@ -796,7 +815,7 @@ server <- function(input, output, session) {
                                             medio = c(10,15), alto = c(15,25), muy.alto = c(25,100))
                     } else {return(NULL)}
                     # Se añade el color a cada nivel
-                    risk.alpha <- 0.05
+                    risk.alpha <- 0.1
                     risks <- rbind(risks, c(rgb(0,1,0,alpha=risk.alpha), rgb(1,1,0,alpha=risk.alpha),
                                             rgb(1,0.7,0,alpha=risk.alpha), rgb(1,0,1,alpha=risk.alpha),
                                             rgb(1,0,0,alpha=risk.alpha)))
