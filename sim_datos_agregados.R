@@ -1,8 +1,3 @@
-# Pasos:
-  # - Procesar datos y calcular proporción por edades y sexos
-  # - Calcular probabilidades
-  # - Weibull (no se puede con datos reales entiendo)
-  # - Simulacion
 
 # Notas:
 # V Gráfica que muestre el porcentaje de ocupación por día
@@ -12,8 +7,8 @@
 #   - Quitando outliers mediante boxplots
 #   - Quitando outliers mediante boxplots, conservando los que tengan un valor cercano al primer y tercer cuartil cuando estos son iguales
 #     Ej: todo 30s, dos 28s, dos 32s y un 300 --> El primer y tercer cuartil será 30, pero queremos conservar los 28s y 32s y quitar sólo el 300
-#   - O opción que no los filtre
-# - Smoothear las gráficas con sliding window después de quitar outliers (https://stats.stackexchange.com/questions/3051/mean-of-a-sliding-window-in-r)
+#   - Opción que no los filtre
+#   - Smoothear las gráficas con sliding window (https://stats.stackexchange.com/questions/3051/mean-of-a-sliding-window-in-r)
 # - Intentar comprobar a qué área sanitaria pertenece cada concello (igual un concello está dentro de una pero más cerca de otra, asegurarse)
 
 library(Rlab)
