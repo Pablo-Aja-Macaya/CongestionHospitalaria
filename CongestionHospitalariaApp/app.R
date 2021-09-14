@@ -148,8 +148,11 @@ check.hosp.capacity <- function(hosp, icu, neto, t, cap.stats, time){
 
 
 # ---- Función de filtrado de outliers ----
-filter.outliers <- function(df, filter.type, sel.col, h, u){
+filter.outliers <- function(df, filter.type, sel.col, h, u, window.size=NA){
     outliers <- c() # inicializar outliers (shiny protesta si no se hace)
+    if (is.na(window.size)){
+        window.size <- 5
+    }
     
     if (is.na(filter.type)){
         return(df)
@@ -178,11 +181,11 @@ filter.outliers <- function(df, filter.type, sel.col, h, u){
         outliers <- outliers[!cond] # quitar los que se encuentran en ese rango
         
     } else if (filter.type=='sliding_median'){
-        df[[sel.col]] <- rollapply(df[[sel.col]], width=5, FUN=median, align='left', fill=NA)
+        df[[sel.col]] <- rollapply(df[[sel.col]], width=window.size, FUN=median, align='left', fill=NA, partial=TRUE)
         return(df)
         
     } else if (filter.type=='sliding_mean'){
-        df[[sel.col]] <- rollapply(df[[sel.col]], width=5, FUN=mean, align='left', fill=NA)
+        df[[sel.col]] <- rollapply(df[[sel.col]], width=window.size, FUN=mean, align='left', fill=NA, partial=TRUE)
         return(df)
     }
     
@@ -191,7 +194,7 @@ filter.outliers <- function(df, filter.type, sel.col, h, u){
         df <- df[-which(df[[sel.col]] %in% outliers),] # quitar las filas del dataset con los que hayan sido outliers
     }
     
-    print(glue('Se eliminan {length(outliers)} outliers de {sel.col} ({h} - {u})\n'))
+    # print(glue('Se eliminan {length(outliers)} outliers de {sel.col} ({h} - {u})\n'))
     return(df)
     
 }
@@ -224,7 +227,11 @@ get.pams <- function(df, age, sex){
 translator <- Translator$new(translation_json_path = "./translations/translation.json")
 translator$set_translation_language("en") # lenguaje por defecto
 languages <- list('Español'='es', 'English'='en')
-
+languages.flags <- data.frame(val = c(c('Español'),c('English')))
+languages.flags$img <- c(
+    sprintf("<img src='spain.svg' width=20px><div class='jhr'>%s</div></img>", languages.flags$val[1]),
+    sprintf("<img src='united-kingdom.svg' width=20px><div class='jhr'>%s</div></img>", languages.flags$val[2])
+)
 library(markdown)
 ui <- fluidPage(
     # theme = shinytheme("lumen"),
@@ -243,6 +250,11 @@ ui <- fluidPage(
                     a{
                         color: #008080;
                     }
+                    .jhr{
+                       display: inline;
+                       vertical-align: middle;
+                       padding-left: 10px;
+                    }
                     '
                     )), # color de highlight de tabla
     tags$style(".fa-quesion {color: black}"),
@@ -257,14 +269,14 @@ ui <- fluidPage(
             ),
         column(5,
                fluidRow(
-                   column(4,selectInput('selected_language',
-                                        NULL,
-                                        choices = languages,
-                                        selected = translator$get_key_translation()), align='center'),
                    column(4,actionButton("automatic.var",translator$t("Default variables"), 
                                          ), align='center'),
                    column(4,actionButton("ejecutar_simulacion",translator$t("Execute simulation"), icon("paper-plane"), 
                                           style="color: #fff; background-color: #008080; border-color: #2e6da4;"), align='center'), 
+                   column(4, pickerInput('selected_language',
+                                         NULL,
+                                         choices = list('Español'='es','English'='en'),
+                                         choicesOpt = list(content=languages.flags$img)), align='center')
                ),
 
         )
@@ -277,7 +289,7 @@ ui <- fluidPage(
                 bsCollapse(id = "collapseExample", open = "Panel 2",
                            # ---- Variables comunes ----
                            bsCollapsePanel(
-                               h4(strong(translator$t("Common variables")), style = "color:#008080"),
+                               h4(strong(translator$t("Sanitary area")), style = "color:#008080"),
                                selectInput("area.sanitaria",
                                            strong(translator$t("Sanitary area")),
                                            choices = c("Coruña - Cee", "Ferrol", "Lugo - A Mariña - Monforte de Lemos",
@@ -290,17 +302,26 @@ ui <- fluidPage(
                                            strong(translator$t("Hospitals")),
                                            choices = list('All'='all'),
                                            selected = 'all'),
-                               
+
+                               style = "info"),
+                           # ---- Outliers ----
+                           bsCollapsePanel(
+                               h4(strong('Outliers'), style = "color:#008080"),
+                               selectInput("outlier.filter.type",
+                                           strong(translator$t("Outlier removal")),
+                                           choices = list('Sliding window median'='sliding_median'),
+                                           selected = 'sliding_median'),
+                               sliderInput("window.size", strong(translator$t("Window size")),
+                                           min = 1, max = 30, value = 5, ticks=F),  
+                               style = "info"),
+                           # ---- Weibull ----
+                           bsCollapsePanel(
+                               h4(strong("Weibull"), style = "color:#008080"),
                                selectInput("modo.weibull",
                                            strong(translator$t("Weibull calculations")),
                                            choices = list("Manual/Fórmula" = 'manual',
                                                           'Automático' = 'automatico'),
                                            selected = 'manual'),
-                               
-                               selectInput("outlier.filter.type",
-                                           strong(translator$t("Outlier removal")),
-                                           choices = list('Permissive boxplot'='extended'),
-                                           selected = 'extended'),
                                style = "info"),
                            # ---- Variables de simulación ----
                            bsCollapsePanel(
@@ -414,8 +435,9 @@ ui <- fluidPage(
                 img(src='logo_feder.jpg', align = "center", width="60%", style="display: block; margin-left: auto; margin-right: auto;"),
                 br(),
                 img(src='logo_xunta.png', align = "center", width="60%", style="display: block; margin-left: auto; margin-right: auto;"),
-                
-                width=3)            
+                br(),
+                width=3)  
+                #####
         ),
 
 
@@ -469,6 +491,7 @@ ui <- fluidPage(
 
 # Define server logic ----
 server <- function(input, output, session) {
+    ##############################################################
     # ---- Actualizar traducciones ----
     observeEvent(input$selected_language, {
         shiny.i18n::update_lang(session, input$selected_language)
@@ -492,10 +515,10 @@ server <- function(input, output, session) {
                           selected = NULL)   
         
         outlier.removal.choices <- list()
-        outlier.removal.choices[[translator$t('Permissive boxplot')]] <- 'extended'
-        outlier.removal.choices[[translator$t('Typical boxplot')]] <- 'boxplot'
         outlier.removal.choices[[translator$t('Sliding window median')]] <- 'sliding_median'
         outlier.removal.choices[[translator$t('Sliding window average')]] <- 'sliding_mean'
+        outlier.removal.choices[[translator$t('Permissive boxplot')]] <- 'extended'
+        outlier.removal.choices[[translator$t('Typical boxplot')]] <- 'boxplot'
         outlier.removal.choices[[translator$t('None')]] <- NA
         updateSelectInput(session, 'outlier.filter.type', label = NULL, choices = outlier.removal.choices,
                           selected = NULL)   
@@ -639,6 +662,17 @@ server <- function(input, output, session) {
     })
     analisis.capacidad <- reactive({
         capacidad <- capacidad.filter()
+        outlier.filter.type <- input$outlier.filter.type
+        
+        # Este if es para que no recargue la gráfica si cambia el window.size
+        # pero no afecta al método de filtrado de outlier
+        if (outlier.filter.type %in% c('sliding_mean','sliding_median')){
+            window.size <- input$window.size
+        } else {
+            window.size <- NA
+        }
+        
+        
         
         # Quitar la unidad de centro no sanitario porque no aporta nada
         capacidad <- subset(capacidad, unidad!='Centros no sanitarios')
@@ -655,7 +689,6 @@ server <- function(input, output, session) {
         par(mfrow=c(length(hospitales)*3,2), mar=c(5,4,6,2))
         for (h in hospitales){
             plot.tittle.line <- 1
-            outlier.filter.type <- input$outlier.filter.type
             # Inicialización de dataframe de unidades*medidas para el hospital
             hospital.capacity.stats[[h]] <- data.frame(matrix(ncol = length(unidades), nrow = 3))
             names(hospital.capacity.stats[[h]]) <- unidades
@@ -745,11 +778,11 @@ server <- function(input, output, session) {
                     # https://www.mscbs.gob.es/profesionales/saludPublica/ccayes/alertasActual/nCov/documentos/Actuaciones_respuesta_COVID_26.03.2021.pdf
                     # Dependiendo de la unidad el porcentaje de ocupación es más o menos preocupante
                     if (u %in% c('Hospitalización convencional')){
-                        risks <- data.frame(nueva.normalidad = c(0,2), bajo = c(2,5),
-                                            medio = c(5,10), alto = c(10,15), muy.alto = c(15,100))
+                        risks <- data.frame(nueva.normalidad = c(-10,2), bajo = c(2,5),
+                                            medio = c(5,10), alto = c(10,15), muy.alto = c(15,110))
                     } else if (u %in% c('U. Críticas CON respirador','U. Críticas SIN respirador')){
-                        risks <- data.frame(nueva.normalidad = c(0,5), bajo = c(5,10),
-                                            medio = c(10,15), alto = c(15,25), muy.alto = c(25,100))
+                        risks <- data.frame(nueva.normalidad = c(-10,5), bajo = c(5,10),
+                                            medio = c(10,15), alto = c(15,25), muy.alto = c(25,110))
                     } else {return(NULL)}
                     # Se añade el color a cada nivel
                     risk.alpha <- 0.1
@@ -758,8 +791,8 @@ server <- function(input, output, session) {
                                             rgb(1,0,0,alpha=risk.alpha)))
                     # Dibujo de áreas de riesgo en el color correspondiente
                     apply(risks, 2, function(l){
-                        rect(fechas[1], l[1],
-                             fechas[length(fechas)], l[2],
+                        rect(fechas[1]-50, l[1],
+                             fechas[length(fechas)]+50, l[2],
                              col= l[3], lwd=0.08)   
                         
                     })
@@ -773,6 +806,9 @@ server <- function(input, output, session) {
                 
                 axis.Date(1, at=seq(min(fechas), max(fechas), length.out=10), format='%b %Y', las=2, cex.axis=0.8)   
                 
+                legend('topright',legend = c('Total ocupadas','Ocupadas por COVID','Ocupadas por no COVID'), 
+                       col = c("green", "red", "blue"), lwd = 2, xpd = TRUE, cex = 1, bty = 'n')
+                
                 title("Porcentaje de ocupación", line = plot.tittle.line)
                 
                 # title(glue('{h} \n({u})'), line = -3, outer = TRUE) # título general (hospital y unidad)
@@ -785,9 +821,9 @@ server <- function(input, output, session) {
                 
                 # Filtrar outliers del total de camas
                 # cat('---------------\n')
-                datos <- filter.outliers(datos, filter.type=outlier.filter.type, sel.col='total_camas', h, u)
-                datos <- filter.outliers(datos, filter.type=outlier.filter.type, sel.col='ocupadas_covid19', h, u)
-                datos <- filter.outliers(datos, filter.type=outlier.filter.type, sel.col='ocupadas_no_covid19', h, u)
+                datos <- filter.outliers(datos, filter.type=outlier.filter.type, sel.col='total_camas', h, u, window.size=window.size)
+                datos <- filter.outliers(datos, filter.type=outlier.filter.type, sel.col='ocupadas_covid19', h, u, window.size=window.size)
+                datos <- filter.outliers(datos, filter.type=outlier.filter.type, sel.col='ocupadas_no_covid19', h, u, window.size=window.size)
 
                 # Añadir total de ocupadas
                 datos$total_ocupadas <- datos$ocupadas_covid19 + datos$ocupadas_no_covid19
@@ -818,11 +854,11 @@ server <- function(input, output, session) {
                     # https://www.mscbs.gob.es/profesionales/saludPublica/ccayes/alertasActual/nCov/documentos/Actuaciones_respuesta_COVID_26.03.2021.pdf
                     # Dependiendo de la unidad el porcentaje de ocupación es más o menos preocupante
                     if (u %in% c('Hospitalización convencional')){
-                        risks <- data.frame(nueva.normalidad = c(0,2), bajo = c(2,5),
-                                            medio = c(5,10), alto = c(10,15), muy.alto = c(15,100))
+                        risks <- data.frame(nueva.normalidad = c(-10,2), bajo = c(2,5),
+                                            medio = c(5,10), alto = c(10,15), muy.alto = c(15,110))
                     } else if (u %in% c('U. Críticas CON respirador','U. Críticas SIN respirador')){
-                        risks <- data.frame(nueva.normalidad = c(0,5), bajo = c(5,10),
-                                            medio = c(10,15), alto = c(15,25), muy.alto = c(25,100))
+                        risks <- data.frame(nueva.normalidad = c(-10,5), bajo = c(5,10),
+                                            medio = c(10,15), alto = c(15,25), muy.alto = c(25,110))
                     } else {return(NULL)}
                     # Se añade el color a cada nivel
                     risk.alpha <- 0.1
@@ -831,8 +867,8 @@ server <- function(input, output, session) {
                                             rgb(1,0,0,alpha=risk.alpha)))
                     # Dibujo de áreas de riesgo en el color correspondiente
                     apply(risks, 2, function(l){
-                        rect(fechas[1], l[1],
-                             fechas[length(fechas)], l[2],
+                        rect(fechas[1]-50, l[1],
+                             fechas[length(fechas)]+50, l[2],
                              col= l[3], lwd=0.08)   
                         
                     })
@@ -845,6 +881,9 @@ server <- function(input, output, session) {
                 add.risk.scale(u)
                 
                 axis.Date(1, at=seq(min(fechas), max(fechas), length.out=10), format='%b %Y', las=2, cex.axis=0.8)   
+                
+                legend('topright',legend = c('Total ocupadas','Ocupadas por COVID','Ocupadas por no COVID'), 
+                       col = c("green", "red", "blue"), lwd = 2, xpd = TRUE, cex = 1, bty = 'n')
                 
                 title("Porcentaje de ocupación (Outliers quitados)", line = plot.tittle.line)
                 
@@ -916,7 +955,6 @@ server <- function(input, output, session) {
     # ---- Simulaciones ----
     resultados <- reactiveValues()
     observeEvent(input$ejecutar_simulacion,{
-        updateTabsetPanel(session = session, inputId = "tabset_resultados", selected = translator$t("Capacity analysis"))
         # Proporciones
         prob.rc.real <- proporciones$prob.rc.real
         prob.rc.woman <- proporciones$prob.rc.woman
@@ -1422,21 +1460,31 @@ server <- function(input, output, session) {
         resultados$nHOS.inc <- nHOS.inc
         resultados$nICU.inc <- nICU.inc
 
-        updateTabsetPanel(session = session, inputId = "tabset_resultados", selected = translator$t("Simulation"))
     }, priority=3)
     
     plot.condicional.res <- reactive({
-        n.time <- input$n.time # días (follow-up time)
-        check.hosp.capacity(resultados$nHOS, resultados$nICU,
-                            resultados$cambio.neto.cond, t='Condicional',
-                            capacidades$area.capacity.stats, n.time)
+        if(length(resultados$nHOS>=1)){
+            n.time <- input$n.time # días (follow-up time)
+            check.hosp.capacity(resultados$nHOS, resultados$nICU,
+                                resultados$cambio.neto.cond, t='Condicional',
+                                capacidades$area.capacity.stats, n.time)            
+        } else {
+            plot(NULL, xlim=c(1,1), ylim=c(1,1), ylab=NA, xlab=NA, axes = FALSE)
+            text(1,1, labels='Pulsa el botón de "Ejecutar simulación"', cex=2, col='darkgray')
+        }
 
     })
     plot.incondicional.res <- reactive({
-        n.time <- input$n.time # días (follow-up time)
-        check.hosp.capacity(resultados$nHOS.inc, resultados$nICU.inc,
-                            resultados$cambio.neto.inc, t='Incondicional',
-                            capacidades$area.capacity.stats, n.time)
+        if(length(resultados$nHOS.inc>=1)){
+            n.time <- input$n.time # días (follow-up time)
+            check.hosp.capacity(resultados$nHOS.inc, resultados$nICU.inc,
+                                resultados$cambio.neto.inc, t='Incondicional',
+                                capacidades$area.capacity.stats, n.time)         
+        } else {
+            plot(NULL, xlim=c(1,1), ylim=c(1,1), ylab=NA, xlab=NA, axes = FALSE)
+            text(1,1, labels='Pulsa el botón de "Ejecutar simulación"', cex=2, col='darkgray')
+        }
+
         
     })
     observe({
@@ -1445,7 +1493,7 @@ server <- function(input, output, session) {
     })
     
 
-    #############################################################
+    ##############################################################
     # ---- Outputs ----
     output$table.capacidades <- renderDataTable(capacidad.filter(), options = list(scrollX = TRUE, pageLength = 5))
     output$table.casos <- renderDataTable(casos.filter(), options = list(scrollX = TRUE, pageLength = 5))

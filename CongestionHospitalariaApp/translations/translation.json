@@ -36,6 +36,7 @@
       {"en": "Sliding window median", "es": "Desplazamiento de ventana con mediana"},
       {"en": "Sliding window average", "es": "Desplazamiento de ventana con media"},
       {"en": "None", "es": "Ninguno"},
+      {"en": "Window size", "es": "Tamaño de ventana"},
       
       {"en": "Simulation variables", "es": "Variables de simulación"},
       {
