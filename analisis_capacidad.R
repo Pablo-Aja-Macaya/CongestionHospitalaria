@@ -29,6 +29,9 @@ create.table <- function(df, capt){
                 ))
 }
 
+# Cargar funciones de gráficas
+source('./common/graficas.R')
+
 # ---- Preprocesado de capacidad ----
 # Meter áreas sanitarias
 capacidad <- merge(areas.hospitales, capacidad, by='hospital')
@@ -134,7 +137,8 @@ unidades <- sort(unique(capacidad$unidad))
 hospital.capacity.stats <- list()
 
 
-par(mfrow=c(1,3), mar=c(5,4,6,2))
+capacidad.plots <- list()
+outliers.plots <- list()
 for (h in hospitales){
   plot.tittle.line <- 1
   # Inicialización de dataframe de unidades*medidas para el hospital
@@ -145,12 +149,6 @@ for (h in hospitales){
     # Total de camas de este hospital por unidad y ordenadas por fecha
     datos <- subset(capacidad, hospital==h & unidad==u)
     datos <- datos[order(datos$fecha_envio),]
-    
-    # Filtrar outliers del total de camas
-    cat('---------------\n')
-    datos <- filter.outliers(datos, filter.type=outlier.filter.type, sel.col='total_camas', h, u, window.size = window.size)
-    datos <- filter.outliers(datos, filter.type=outlier.filter.type, sel.col='ocupadas_covid19', h, u, window.size = window.size)
-    datos <- filter.outliers(datos, filter.type=outlier.filter.type, sel.col='ocupadas_no_covid19', h, u, window.size = window.size)
 
     # Añadir total de ocupadas
     datos$total_ocupadas <- datos$ocupadas_covid19 + datos$ocupadas_no_covid19
@@ -160,6 +158,18 @@ for (h in hospitales){
     fechas <- datos$fecha_envio
     tot.ocupadas <- datos$total_ocupadas
     
+    # ---- Gráficas ----
+    # p1.with.outliers <- plot.interactive.hist(datos)
+    # p2.with.outliers  <- plot.interactive.total.beds(datos)
+    p3.with.outliers  <- plot.interactive.percent.patients(datos,u)
+    
+    # ---- Filtrar outliers del total de camas ----
+    cat('---------------\n')
+    datos <- filter.outliers(datos, filter.type=outlier.filter.type, sel.col='total_camas', h, u, window.size = window.size)
+    datos <- filter.outliers(datos, filter.type=outlier.filter.type, sel.col='ocupadas_covid19', h, u, window.size = window.size)
+    datos <- filter.outliers(datos, filter.type=outlier.filter.type, sel.col='ocupadas_no_covid19', h, u, window.size = window.size)
+    
+    # ---- Estadísticas -----
     # Mediana y percentiles
     mediana <- median(tot, na.rm=T)
     percentiles <- quantile(tot, probs = seq(0, 1, by= 0.1), na.rm=T)
@@ -168,104 +178,81 @@ for (h in hospitales){
     min.sobrepasado <- fechas[which(tot.ocupadas>percentiles[['10%']])]
     max.sobrepasado <- fechas[which(tot.ocupadas>percentiles[['90%']])]
     median.sobrepasado <- fechas[which(tot.ocupadas>mediana)]
-    
-    # -- Histograma ----
-    hist(tot, breaks = 30, main=NA, col='gray', xlab='Total camas') 
-    title(sub=paste('Mediana:', mediana), adj=1, line=2, font=2,cex.sub = 0.75)
-    title(sub=paste('Percentil 10:', percentiles[['10%']]), adj=1, line=3, font=2,cex.sub = 0.75)
-    title(sub=paste('Percentil 90:', percentiles[['90%']]), adj=1, line=4, font=2,cex.sub = 0.75)
-    title("Histograma de camas", line = plot.tittle.line)
-    
-    # -- Plot de número de camas a lo largo de la pandemia ----
-    plot(total_camas ~ fecha_envio, datos, ylim=c(0,max(tot, na.rm=T)+max(tot, na.rm=T)*0.25), xaxt = "n", type = "l", main=NA, xlab=NA, ylab='Camas')
-    # Columnas rojas (días donde se sobrepasa una de las estadísticas)
-    # Cuanto más rojizas más gravedad
-    for (d in min.sobrepasado){
-      rect(d-1, 0-20,
-           d+1, max(tot, na.rm=T)+80,
-           col= rgb(1,0,0,alpha=0.05), lwd=0)      
-    }
-    for (d in max.sobrepasado){
-      rect(d-1, 0-20,
-           d+1, max(tot, na.rm=T)+80,
-           col= rgb(1,0,0,alpha=0.3), lwd=0)      
-    }
-    for (d in median.sobrepasado){
-      rect(d-1, 0-20,
-           d+1, max(tot, na.rm=T)+80,
-           col= rgb(1,0,0,alpha=0.15), lwd=0)      
-    }
-    # Área entre percentil10 y percentil90
-    rect(fechas[1]-20,percentiles[['10%']],
-         fechas[length(fechas)]+20,percentiles[['90%']],
-         col= rgb(0,0,1,alpha=0.05), lwd=0)
-    # Datos de ocupación
-    lines(ocupadas_no_covid19 ~ fecha_envio, datos, type="l",lty=1, lwd=1, col='blue')
-    lines(ocupadas_covid19 ~ fecha_envio, datos, type="l",lty=1, lwd=1, col='red')
-    lines(total_ocupadas ~ fecha_envio, datos, type="l",lty=1, lwd=1, col='green')
-    abline(h=mediana, col='darkorchid', lty=1)
-    # abline(h=percentiles[['10%']], col='deeppink', lty=5)
-    # abline(h=percentiles[['90%']], col='darkslateblue', lty=5)
 
-    axis.Date(1, at=seq(min(fechas), max(fechas), length.out=10), format='%b %Y', las=2, cex.axis=0.8)    
-    legend('topright',legend = c('Total camas','Total ocupadas','Ocupadas por COVID','Ocupadas por no COVID','Mediana total camas'), 
-           col = c("black","green", "red", "blue", "darkorchid"), lwd = 2, xpd = TRUE, cex = 0.5, bty = 'n')
+    # ---- Gráficas ----
+    p1.without.outliers <- plot.interactive.hist(datos)
+    p2.without.outliers  <- plot.interactive.total.beds(datos)
+    p3.without.outliers  <- plot.interactive.percent.patients(datos,u)
     
-    title("Total de camas", line = plot.tittle.line)
-
-    # -- Plot de porcentaje de ocupación a lo largo de la pandemia ----
-    ocupados.covid.pct <- (datos$ocupadas_covid19/datos$total_camas)*100
-    ocupados.nocovid.pct <- (datos$ocupadas_no_covid19/datos$total_camas)*100
-    ocupados.total.pct <- ((datos$ocupadas_covid19+datos$ocupadas_no_covid19)/datos$total_camas)*100
-    df.ocupados.pct <- data.frame(ocupados.covid.pct, ocupados.nocovid.pct, ocupados.total.pct, fecha_envio=datos$fecha_envio)
+    ################################################################
+    # ---- Análisis de capacidad junto ----
+    annotations = list( 
+      list( 
+        x = 0.2,  
+        y = 1.0,  
+        text = "Histograma del total de camas",  
+        xref = "paper",  
+        yref = "paper",  
+        xanchor = "center",  
+        yanchor = "bottom",  
+        showarrow = FALSE 
+      ),  
+      list( 
+        x = 0.8,  
+        y = 1,  
+        text = "Porcentaje de ocupación",  
+        xref = "paper",  
+        yref = "paper",  
+        xanchor = "center",  
+        yanchor = "bottom",  
+        showarrow = FALSE 
+      )
+    )
     
-    plot(ocupados.covid.pct ~ fecha_envio, df.ocupados.pct, ylim=c(0,100), xaxt = "n", type = "l", main=NA, xlab=NA, ylab='Ocupación (%)', col='red')
-
-    add.risk.scale = function(u){
-      # https://www.mscbs.gob.es/profesionales/saludPublica/ccayes/alertasActual/nCov/documentos/Actuaciones_respuesta_COVID_26.03.2021.pdf
-      # Dependiendo de la unidad el porcentaje de ocupación es más o menos preocupante
-      if (u %in% c('Hospitalización convencional')){
-        risks <- data.frame(nueva.normalidad = c(-10,2), bajo = c(2,5),
-                            medio = c(5,10), alto = c(10,15), muy.alto = c(15,110))
-      } else if (u %in% c('U. Críticas CON respirador','U. Críticas SIN respirador')){
-        risks <- data.frame(nueva.normalidad = c(0,5), bajo = c(5,10),
-                            medio = c(10,15), alto = c(15,25), muy.alto = c(25,110))
-      } else {return(NULL)}
-      # Se añade el color a cada nivel
-      risk.alpha <- 0.1
-      risks <- rbind(risks, c(rgb(0,1,0,alpha=risk.alpha), rgb(1,1,0,alpha=risk.alpha),
-                              rgb(1,0.7,0,alpha=risk.alpha), rgb(1,0,1,alpha=risk.alpha),
-                              rgb(1,0,0,alpha=risk.alpha)))
-      # Dibujo de áreas de riesgo en el color correspondiente
-      apply(risks, 2, function(l){
-        rect(fechas[1]-50, l[1],
-             fechas[length(fechas)]+50, l[2],
-             col= l[3], lwd=0.08)   
-        
-      })
-      # Datos se ponen ahora para pisar los cuadros de color
-      lines(ocupados.covid.pct ~ fecha_envio, df.ocupados.pct, type="l",lty=1, lwd=1, col='red')
-      lines(ocupados.nocovid.pct ~ fecha_envio, df.ocupados.pct, type="l",lty=1, lwd=1, col='blue')
-      lines(ocupados.total.pct ~ fecha_envio, df.ocupados.pct, type="l",lty=1, lwd=1, col='green')
-      
-    }
-    add.risk.scale(u)
+    capacidad.plots[[glue('{h}__{u}')]] <- subplot(p1.without.outliers, p3.without.outliers, margin = 0.04) %>% 
+                                          layout(title = glue("<b>{h}</b>\n{u}"),
+                                                 titlefont=list(size=15),
+                                                 margin = list(l=20, r=20, b=20, t=120),
+                                                 annotations = annotations)
     
-    axis.Date(1, at=seq(min(fechas), max(fechas), length.out=10), format='%b %Y', las=2, cex.axis=0.8)   
     
-    legend('topright',legend = c('Total ocupadas','Ocupadas por COVID','Ocupadas por no COVID'), 
-           col = c("green", "red", "blue"), lwd = 2, xpd = TRUE, cex = 1, bty = 'n')
+    ################################################################
+    # ---- Comparación de outliers vs no outliers ----
     
-    title("Porcentaje de ocupación", line = plot.tittle.line)
+    annotations = list( 
+      list( 
+        x = 0.23,  
+        y = 1.0,  
+        text = "Con outliers",  
+        xref = "paper",  
+        yref = "paper",  
+        xanchor = "center",  
+        yanchor = "bottom",  
+        showarrow = FALSE 
+      ),  
+      list( 
+        x = 0.77,  
+        y = 1,  
+        text = "Datos tratados",  
+        xref = "paper",  
+        yref = "paper",  
+        xanchor = "center",  
+        yanchor = "bottom",  
+        showarrow = FALSE 
+      )
+    )
     
-    title(glue('{h} \n({u})'), line = -3, outer = TRUE) # título general (hospital y unidad)
+    outliers.plots[[glue('{h}__{u}')]] <- subplot(p3.with.outliers, p3.without.outliers, margin = 0.04) %>% 
+                                          layout(title = glue("<b>{h}</b>\n{u}"),
+                                                 titlefont=list(size=15),
+                                                 margin = list(l=20, r=20, b=20, t=120),
+                                                 annotations = annotations)
     
     # Meter resultados en la lista
     hospital.capacity.stats[[h]][[u]] <- c(mediana, percentiles[['10%']], percentiles[['90%']])
   }
   
 }
-par(mfrow=c(1,1))
 
 # ---- Resultados de cada hospital por unidad ----
 hospital.capacity.stats
@@ -313,3 +300,110 @@ plot.capacity.intervals(area.capacity.stats,'Hospitalización convencional')
 plot.capacity.intervals(area.capacity.stats,'U. Críticas CON respirador')
 plot.capacity.intervals(area.capacity.stats,'U. Críticas SIN respirador')
 par(mfrow=c(1,1))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# # -- Histograma ----
+# hist(tot, breaks = 30, main=NA, col='gray', xlab='Total camas') 
+# title(sub=paste('Mediana:', mediana), adj=1, line=2, font=2,cex.sub = 0.75)
+# title(sub=paste('Percentil 10:', percentiles[['10%']]), adj=1, line=3, font=2,cex.sub = 0.75)
+# title(sub=paste('Percentil 90:', percentiles[['90%']]), adj=1, line=4, font=2,cex.sub = 0.75)
+# title("Histograma de camas", line = plot.tittle.line)
+# 
+# # -- Plot de número de camas a lo largo de la pandemia ----
+# plot(total_camas ~ fecha_envio, datos, ylim=c(0,max(tot, na.rm=T)+max(tot, na.rm=T)*0.25), xaxt = "n", type = "l", main=NA, xlab=NA, ylab='Camas')
+# # Columnas rojas (días donde se sobrepasa una de las estadísticas)
+# # Cuanto más rojizas más gravedad
+# for (d in min.sobrepasado){
+#   rect(d-1, 0-20,
+#        d+1, max(tot, na.rm=T)+80,
+#        col= rgb(1,0,0,alpha=0.05), lwd=0)      
+# }
+# for (d in max.sobrepasado){
+#   rect(d-1, 0-20,
+#        d+1, max(tot, na.rm=T)+80,
+#        col= rgb(1,0,0,alpha=0.3), lwd=0)      
+# }
+# for (d in median.sobrepasado){
+#   rect(d-1, 0-20,
+#        d+1, max(tot, na.rm=T)+80,
+#        col= rgb(1,0,0,alpha=0.15), lwd=0)      
+# }
+# # Área entre percentil10 y percentil90
+# rect(fechas[1]-20,percentiles[['10%']],
+#      fechas[length(fechas)]+20,percentiles[['90%']],
+#      col= rgb(0,0,1,alpha=0.05), lwd=0)
+# # Datos de ocupación
+# lines(ocupadas_no_covid19 ~ fecha_envio, datos, type="l",lty=1, lwd=1, col='blue')
+# lines(ocupadas_covid19 ~ fecha_envio, datos, type="l",lty=1, lwd=1, col='red')
+# lines(total_ocupadas ~ fecha_envio, datos, type="l",lty=1, lwd=1, col='green')
+# abline(h=mediana, col='darkorchid', lty=1)
+# # abline(h=percentiles[['10%']], col='deeppink', lty=5)
+# # abline(h=percentiles[['90%']], col='darkslateblue', lty=5)
+# 
+# axis.Date(1, at=seq(min(fechas), max(fechas), length.out=10), format='%b %Y', las=2, cex.axis=0.8)    
+# legend('topright',legend = c('Total camas','Total ocupadas','Ocupadas por COVID','Ocupadas por no COVID','Mediana total camas'), 
+#        col = c("black","green", "red", "blue", "darkorchid"), lwd = 2, xpd = TRUE, cex = 0.5, bty = 'n')
+# 
+# title("Total de camas", line = plot.tittle.line)
+# 
+# # -- Plot de porcentaje de ocupación a lo largo de la pandemia ----
+# ocupados.covid.pct <- (datos$ocupadas_covid19/datos$total_camas)*100
+# ocupados.nocovid.pct <- (datos$ocupadas_no_covid19/datos$total_camas)*100
+# ocupados.total.pct <- ((datos$ocupadas_covid19+datos$ocupadas_no_covid19)/datos$total_camas)*100
+# df.ocupados.pct <- data.frame(ocupados.covid.pct, ocupados.nocovid.pct, ocupados.total.pct, fecha_envio=datos$fecha_envio)
+# 
+# plot(ocupados.covid.pct ~ fecha_envio, df.ocupados.pct, ylim=c(0,100), xaxt = "n", type = "l", main=NA, xlab=NA, ylab='Ocupación (%)', col='red')
+# 
+# add.risk.scale = function(u){
+#   # https://www.mscbs.gob.es/profesionales/saludPublica/ccayes/alertasActual/nCov/documentos/Actuaciones_respuesta_COVID_26.03.2021.pdf
+#   # Dependiendo de la unidad el porcentaje de ocupación es más o menos preocupante
+#   if (u %in% c('Hospitalización convencional')){
+#     risks <- data.frame(nueva.normalidad = c(-10,2), bajo = c(2,5),
+#                         medio = c(5,10), alto = c(10,15), muy.alto = c(15,110))
+#   } else if (u %in% c('U. Críticas CON respirador','U. Críticas SIN respirador')){
+#     risks <- data.frame(nueva.normalidad = c(0,5), bajo = c(5,10),
+#                         medio = c(10,15), alto = c(15,25), muy.alto = c(25,110))
+#   } else {return(NULL)}
+#   # Se añade el color a cada nivel
+#   risk.alpha <- 0.1
+#   risks <- rbind(risks, c(rgb(0,1,0,alpha=risk.alpha), rgb(1,1,0,alpha=risk.alpha),
+#                           rgb(1,0.7,0,alpha=risk.alpha), rgb(1,0,1,alpha=risk.alpha),
+#                           rgb(1,0,0,alpha=risk.alpha)))
+#   # Dibujo de áreas de riesgo en el color correspondiente
+#   apply(risks, 2, function(l){
+#     rect(fechas[1]-50, l[1],
+#          fechas[length(fechas)]+50, l[2],
+#          col= l[3], lwd=0.08)   
+#     
+#   })
+#   # Datos se ponen ahora para pisar los cuadros de color
+#   lines(ocupados.covid.pct ~ fecha_envio, df.ocupados.pct, type="l",lty=1, lwd=1, col='red')
+#   lines(ocupados.nocovid.pct ~ fecha_envio, df.ocupados.pct, type="l",lty=1, lwd=1, col='blue')
+#   lines(ocupados.total.pct ~ fecha_envio, df.ocupados.pct, type="l",lty=1, lwd=1, col='green')
+#   
+# }
+# add.risk.scale(u)
+# 
+# axis.Date(1, at=seq(min(fechas), max(fechas), length.out=10), format='%b %Y', las=2, cex.axis=0.8)   
+# 
+# legend('topright',legend = c('Total ocupadas','Ocupadas por COVID','Ocupadas por no COVID'), 
+#        col = c("green", "red", "blue"), lwd = 2, xpd = TRUE, cex = 1, bty = 'n')
+# 
+# title("Porcentaje de ocupación", line = plot.tittle.line)
+# 
+# title(glue('{h} \n({u})'), line = -3, outer = TRUE) # título general (hospital y unidad)

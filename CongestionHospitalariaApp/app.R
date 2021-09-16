@@ -153,7 +153,10 @@ check.hosp.capacity.interactive <- function(hosp, icu, neto, tipo, cap.stats, ti
     p <- ggplot(data=datos,aes(x=days,y=hos)) + geom_line(color="#E69F00") +
         geom_line(aes(x=days, y=icu), color="#56B4E9") + 
         geom_line(aes(x=days, y=cambio.neto), color="#009E73") +
-        geom_line(aes(x=days, y=icu+hos), color="#111111") + theme_minimal()
+        geom_line(aes(x=days, y=icu+hos), color="#111111") + 
+        ggtitle(tipo) + labs(y="Hospitalizados", x = "Días") +
+        theme_minimal() + theme(plot.title = element_text(hjust = 0.5)) 
+
     
     font <- list(
         family = "Roboto Condensed",
@@ -263,9 +266,7 @@ ui <- fluidPage(
     shinyjs::useShinyjs(),
     shiny.i18n::usei18n(translator),
 
-    tags$style(HTML('table.dataTable tr.selected td, table.dataTable td.selected {
-                        background-color: #008080 !important; color: white !important
-                    }
+    tags$style(HTML('
                     #sidebar, Sidebar {
                         background-color: white;
                         border: 0px solid white;
@@ -282,6 +283,9 @@ ui <- fluidPage(
                        display: inline;
                        vertical-align: middle;
                        padding-left: 10px;
+                    }
+                    table.dataTable tr.selected td, table.dataTable td.selected {
+                        background-color: #008080 !important; color: white !important
                     }
                     '
                     )), # color de highlight de tabla
