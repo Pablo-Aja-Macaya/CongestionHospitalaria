@@ -16,6 +16,11 @@
         "es": "El análisis indica, para cada hospital y unidad (UCI, convencional...), la capacidad de esta (negro), el número de camas ocupadas (COVID, rojo o no COVID, azul), el área donde se mueve la cantidad de camas disponibles (morado) y los días en los que se superaron algún límite (columnas rojas)."
       },
       
+      {"en": "Tables", "es": "Tablas"},
+      {"en": "Capacity table", "es": "Tabla de capacidades"},
+      {"en": "Cases table", "es": "Tabla de casos"},
+      {"en": "Hospitalized table", "es": "Tabla de hospitalizados"},
+      
       {"en": "Common variables", "es": "Variables comunes"},
       {"en": "Sanitary area", "es": "Área sanitaria"},
       
@@ -77,8 +82,11 @@
       {"en": "Hospitalized proportions (prob.rc.real)", "es": "Proporciones muestrales de hospitalizados (prob.rc.real)"},
 
 
-
-
+      {"en": "Ocupation percentage", "es": "Porcentaje de ocupación"},
+      {"en": "Total occupied", "es": "Total ocupadas"},
+      {"en": "Occupied by COVID-19", "es": "Ocupadas por COVID-19"},
+      {"en": "Occupied with other causes", "es": "Ocupadas por otras causas"},
+      
 
       {"en": "Non sanitary centers", "es": "Centros no sanitarios"},
       {"en": "Conventional hospitalization", "es": "Hospitalización convencional"},

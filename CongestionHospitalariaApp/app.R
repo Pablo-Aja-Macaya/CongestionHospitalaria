@@ -22,6 +22,7 @@ library(DT)
 library(readr)
 library(glue)
 library(dplyr)
+library(zoo)
 
 #  ---- Variables de datos ----
 areas.hospitales <- data.frame(read_csv("../datos/areas_hospitales_correspondencia.csv"))
@@ -146,6 +147,29 @@ check.hosp.capacity <- function(hosp, icu, neto, t, cap.stats, time){
     
 }
 
+check.hosp.capacity.interactive <- function(hosp, icu, neto, tipo, cap.stats, time){
+    datos <- data.frame(days=1:time, hos=hosp, icu=icu, cambio.neto=neto)
+    
+    p <- ggplot(data=datos,aes(x=days,y=hos)) + geom_line(color="#E69F00") +
+        geom_line(aes(x=days, y=icu), color="#56B4E9") + 
+        geom_line(aes(x=days, y=cambio.neto), color="#009E73") +
+        geom_line(aes(x=days, y=icu+hos), color="#111111") + theme_minimal()
+    
+    font <- list(
+        family = "Roboto Condensed",
+        size = 10,
+        color = "white"
+    )
+    label <- list(
+        bgcolor = "#232F34",
+        bordercolor = "transparent",
+        font = font
+    )
+    
+    ggplotly(p, tooltip="y") %>% 
+        style(hoverlabel = label) %>%
+        layout(hovermode = "x unified")
+}
 
 # ---- Función de filtrado de outliers ----
 filter.outliers <- function(df, filter.type, sel.col, h, u, window.size=NA){
@@ -201,6 +225,7 @@ filter.outliers <- function(df, filter.type, sel.col, h, u, window.size=NA){
 
 
 
+
 #######################
 # ----- Weibull ----- #
 #######################
@@ -250,6 +275,9 @@ ui <- fluidPage(
                     a{
                         color: #008080;
                     }
+                    h3, h4, h5{
+                        color: #008080;
+                    }
                     .jhr{
                        display: inline;
                        vertical-align: middle;
@@ -259,15 +287,15 @@ ui <- fluidPage(
                     )), # color de highlight de tabla
     tags$style(".fa-quesion {color: black}"),
     add_busy_bar(color = "#008080"),
-    
-    title=translator$t("Hospital congestion"),
-    
+
+    title=translator$t("CEDCOVID"),
     br(),
     fluidRow(
-        column(7,
-            titlePanel(h2(strong('CEDCOVID:', translator$t("Hospital congestion")), style = "color:#008080")),
+        column(8,
+            titlePanel(h2(img(src='logo_citic_cortado.png', width="4%",style="vertical-align:middle"),strong(translator$t("Hospital congestion")), style = "color:#008080"),
             ),
-        column(5,
+        ),
+        column(4,
                fluidRow(
                    column(4,actionButton("automatic.var",translator$t("Default variables"), 
                                          ), align='center'),
@@ -289,7 +317,7 @@ ui <- fluidPage(
                 bsCollapse(id = "collapseExample", open = "Panel 2",
                            # ---- Variables comunes ----
                            bsCollapsePanel(
-                               h4(strong(translator$t("Sanitary area")), style = "color:#008080"),
+                               h4(strong(translator$t("Sanitary area"))),
                                selectInput("area.sanitaria",
                                            strong(translator$t("Sanitary area")),
                                            choices = c("Coruña - Cee", "Ferrol", "Lugo - A Mariña - Monforte de Lemos",
@@ -304,29 +332,10 @@ ui <- fluidPage(
                                            selected = 'all'),
 
                                style = "info"),
-                           # ---- Outliers ----
-                           bsCollapsePanel(
-                               h4(strong('Outliers'), style = "color:#008080"),
-                               selectInput("outlier.filter.type",
-                                           strong(translator$t("Outlier removal")),
-                                           choices = list('Sliding window median'='sliding_median'),
-                                           selected = 'sliding_median'),
-                               sliderInput("window.size", strong(translator$t("Window size")),
-                                           min = 1, max = 30, value = 5, ticks=F),  
-                               style = "info"),
-                           # ---- Weibull ----
-                           bsCollapsePanel(
-                               h4(strong("Weibull"), style = "color:#008080"),
-                               selectInput("modo.weibull",
-                                           strong(translator$t("Weibull calculations")),
-                                           choices = list("Manual/Fórmula" = 'manual',
-                                                          'Automático' = 'automatico'),
-                                           selected = 'manual'),
-                               style = "info"),
                            # ---- Variables de simulación ----
                            bsCollapsePanel(
-                               h4(strong(translator$t("Simulation variables")), style = "color:#008080"), 
-                               p(strong('Info', style = "color:#008080"), circleButton("helpbox_simulacion_button",icon("question"),size='xs')), 
+                               h4(strong(translator$t("Simulation variables"))), 
+                               h4(strong('Info'), circleButton("helpbox_simulacion_button",icon("question"),size='xs')), 
                                uiOutput("helpbox_simulacion"),
                                fluidRow(
                                    column(12,
@@ -365,10 +374,10 @@ ui <- fluidPage(
                                style = "info"),
                            # ---- Probabilidades ----
                            bsCollapsePanel(
-                               h4(strong(translator$t("Probabilities"),style = "color:#008080")),
-                               p(strong('Info', style = "color:#008080"), circleButton("helpbox_probabilidades_button",icon("question"),size='xs')),
+                               h4(strong(translator$t("Probabilities"))),
+                               h4(strong('Info'), circleButton("helpbox_probabilidades_button",icon("question"),size='xs')),
                                uiOutput("helpbox_probabilidades"),
-                               h5(strong(translator$t("Initial probabilities")), style = "color:#008080"),
+                               h5(strong(translator$t("Initial probabilities"))),
                                fluidRow(
                                    column(12,
                                           sliderInput("prob.ICU", strong(translator$t("ICU admission")),
@@ -380,7 +389,7 @@ ui <- fluidPage(
                                    ),
                                ),
                                
-                               h5(strong(translator$t("Probabilities in hospital")), style = "color:#008080"),
+                               h5(strong(translator$t("Probabilities in hospital"))),
                                fluidRow(
                                    column(12,
                                           sliderInput("prob.HW.death", strong(translator$t("Death")),
@@ -396,7 +405,7 @@ ui <- fluidPage(
                                    ),
                                ),
                                
-                               h5(strong(translator$t("Probabilities in ICU")), style = "color:#008080"),
+                               h5(strong(translator$t("Probabilities in ICU"))),
                                fluidRow(
                                    column(12,
                                           sliderInput("prob.ICU.death", strong(translator$t("Death")),
@@ -408,9 +417,28 @@ ui <- fluidPage(
                                    ),
                                ),
                                style = "info"),
+                           # ---- Outliers ----
+                           bsCollapsePanel(
+                               h4(strong('Outliers')),
+                               selectInput("outlier.filter.type",
+                                           strong(translator$t("Outlier removal")),
+                                           choices = list('Sliding window median'='sliding_median'),
+                                           selected = 'sliding_median'),
+                               sliderInput("window.size", strong(translator$t("Window size")),
+                                           min = 1, max = 30, value = 5, ticks=F),  
+                               style = "info"),
+                           # ---- Weibull ----
+                           bsCollapsePanel(
+                               h4(strong("Weibull")),
+                               selectInput("modo.weibull",
+                                           strong(translator$t("Weibull calculations")),
+                                           choices = list("Manual/Fórmula" = 'manual',
+                                                          'Automático' = 'automatico'),
+                                           selected = 'manual'),
+                               style = "info"),
                            # ---- Proporciones muestrales ----
                            bsCollapsePanel(
-                               h4(strong(translator$t("Variables calculated from hospital data")), style = "color:#008080"),
+                               h4(strong(translator$t("Variables calculated from hospital data"))),
                                dataTableOutput("table.prob.resumen"),
                                numericInput('prob.w',
                                             strong(translator$t("Probability of being a woman (prob.w)")),
@@ -428,15 +456,18 @@ ui <- fluidPage(
                 ),
                 # ---- Imagen citic ----
                 hr(),
-                img(src='logo_citic.png', align = "center", width="60%", style="display: block; margin-left: auto; margin-right: auto;"),
-                br(),
-                img(src='logo_gain.png', align = "center", width="60%", style="display: block; margin-left: auto; margin-right: auto;"),
-                br(),
-                img(src='logo_feder.jpg', align = "center", width="60%", style="display: block; margin-left: auto; margin-right: auto;"),
-                br(),
-                img(src='logo_xunta.png', align = "center", width="60%", style="display: block; margin-left: auto; margin-right: auto;"),
-                br(),
-                width=3)  
+                a(img(src='logo_citic.png', align = "center", width="50%", style="display: block; margin-left: auto; margin-right: auto;"), href='https://citic.udc.es/'),
+                br(),br(),br(),
+                a(img(src='logo_gain.png', align = "center", width="50%", style="display: block; margin-left: auto; margin-right: auto;"), href='http://gain.xunta.gal/?locale=es_ES'),
+                br(),br(),br(),
+                a(img(src='logo_feder.jpg', align = "center", width="50%", style="display: block; margin-left: auto; margin-right: auto;"), href='https://ec.europa.eu/regional_policy/es/funding/erdf/'),
+                br(),br(),br(),
+                a(img(src='logo_xunta.png', align = "center", width="50%", style="display: block; margin-left: auto; margin-right: auto;"), href='https://www.xunta.gal/portada'),
+                br(),br(),br(),
+
+            width=3),
+            
+
                 #####
         ),
 
@@ -445,39 +476,35 @@ ui <- fluidPage(
         mainPanel(
             # ---- Tabsets ----
             tabsetPanel(id='tabset_resultados', type = "tabs",
-                        tabPanel(translator$t("Capacity analysis"), 
-                                 h4(strong(translator$t("Capacity analysis")),circleButton("helpbox_analisis_capacidad_button",icon("question"),size='xs')),
+                        tabPanel(translator$t("Capacity analysis"),
+                                 h3(strong(translator$t("Capacity analysis")),circleButton("helpbox_analisis_capacidad_button",icon("question"),size='xs')),
                                  uiOutput("helpbox_analisis_capacidad"),
                                  plotOutput("analisis") %>% withSpinner()
-                                 
+
                         ),
-                        tabPanel(translator$t("Capacities"),
+                        tabPanel(translator$t("Tables"),
+                                 h3(strong(translator$t("Capacity table"))),
+                                 dataTableOutput("table.capacidades"),
                                  br(),
-                                 dataTableOutput("table.capacidades")
-                        ),
-                        tabPanel(translator$t("Cases"),
+                                 hr(),
                                  br(),
-                                 dataTableOutput("table.casos")
-                        ),
-                        tabPanel(translator$t("Hospitalized"),
+                                 h3(strong(translator$t("Cases table"))),
+                                 dataTableOutput("table.casos"),
                                  br(),
-                                 dataTableOutput("table.hospitalizados")
+                                 hr(),
+                                 br(),
+                                 h3(strong(translator$t("Hospitalized table"))),
+                                 dataTableOutput("table.hospitalizados"),
+                                 br(),
+                                 br(),
+                                 br()
                         ),
+
                         tabPanel(translator$t("Simulation"), 
-                                 h4(strong(translator$t("Simulation"))),
-                                 plotOutput("res.condicional") %>% withSpinner(),
-                                 plotOutput("res.incondicional") %>% withSpinner()
+                                 h3(strong(translator$t("Simulation"))),
+                                 plotlyOutput("res.condicional") %>% withSpinner(),
+                                 plotlyOutput("res.incondicional") %>% withSpinner()
                         )
-                        # tabPanel('Datos',
-                        #     fluidRow(
-                        #         column(
-                        #             br(),
-                        #             tabsetPanel(type = "tabs",
-                        # 
-                        #             ),
-                        #             width = 12)
-                        #     )
-                        # )
             ),
 
 
@@ -671,8 +698,6 @@ server <- function(input, output, session) {
         } else {
             window.size <- NA
         }
-        
-        
         
         # Quitar la unidad de centro no sanitario porque no aporta nada
         capacidad <- subset(capacidad, unidad!='Centros no sanitarios')
@@ -1462,34 +1487,40 @@ server <- function(input, output, session) {
 
     }, priority=3)
     
+    
+    dummy.plot <- function(){
+        # Crea una gráfica placeholder con un texto en el medio
+        p <- ggplot() + annotate(geom = 'text', label = 'Pulsa el botón de "Ejecutar simulación"', x = 1, y = 1, hjust = 0, vjust = 1, col='darkgray') + 
+            theme_void()
+        ggplotly(p)
+    }
+    
     plot.condicional.res <- reactive({
         if(length(resultados$nHOS>=1)){
             n.time <- input$n.time # días (follow-up time)
-            check.hosp.capacity(resultados$nHOS, resultados$nICU,
-                                resultados$cambio.neto.cond, t='Condicional',
-                                capacidades$area.capacity.stats, n.time)            
+            check.hosp.capacity.interactive(resultados$nHOS, resultados$nICU,
+                                            resultados$cambio.neto.cond, 'Condicional',
+                                            capacidades$area.capacity.stats, n.time)
         } else {
-            plot(NULL, xlim=c(1,1), ylim=c(1,1), ylab=NA, xlab=NA, axes = FALSE)
-            text(1,1, labels='Pulsa el botón de "Ejecutar simulación"', cex=2, col='darkgray')
+            dummy.plot()
         }
 
     })
     plot.incondicional.res <- reactive({
         if(length(resultados$nHOS.inc>=1)){
             n.time <- input$n.time # días (follow-up time)
-            check.hosp.capacity(resultados$nHOS.inc, resultados$nICU.inc,
-                                resultados$cambio.neto.inc, t='Incondicional',
-                                capacidades$area.capacity.stats, n.time)         
+            check.hosp.capacity.interactive(resultados$nHOS.inc, resultados$nICU.inc,
+                                            resultados$cambio.neto.inc, 'Incondicional',
+                                            capacidades$area.capacity.stats, n.time)
         } else {
-            plot(NULL, xlim=c(1,1), ylim=c(1,1), ylab=NA, xlab=NA, axes = FALSE)
-            text(1,1, labels='Pulsa el botón de "Ejecutar simulación"', cex=2, col='darkgray')
+            dummy.plot()
         }
 
         
     })
     observe({
-        output$res.condicional <- renderPlot(plot.condicional.res())
-        output$res.incondicional <- renderPlot(plot.incondicional.res())
+        output$res.condicional <- renderPlotly(plot.condicional.res())
+        output$res.incondicional <- renderPlotly(plot.incondicional.res())
     })
     
 

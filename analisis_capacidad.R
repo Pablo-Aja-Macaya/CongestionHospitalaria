@@ -8,12 +8,13 @@ library(DT)
 library(readr)
 library(glue)
 library(dplyr)
+library(zoo)
 
 #  ---- Variables de datos ----
-area.sanitaria <- "all" # "Coruña - Cee" # c('Ourense - Verín - O Barco de Valdeorras', 'Coruña - Cee') # si se pone 'all' se eligen todas
-hosp.ref <- 1 # qué hospitales se seleccionan (1: referencias, 0: no referencias, 'all': todos)
-outlier.filter.type <- 'sliding_median' # tipo de filtro de outliers
-window.size <- 5 # para el filtro de outliers si se elige desplazamiento de ventana
+# area.sanitaria <- "all" # "Coruña - Cee" # c('Ourense - Verín - O Barco de Valdeorras', 'Coruña - Cee') # si se pone 'all' se eligen todas
+# hosp.ref <- 1 # qué hospitales se seleccionan (1: referencias, 0: no referencias, 'all': todos)
+# outlier.filter.type <- 'sliding_median' # tipo de filtro de outliers
+# window.size <- 5 # para el filtro de outliers si se elige desplazamiento de ventana
 areas.hospitales <- data.frame(read_csv("datos/areas_hospitales_correspondencia.csv"))
 capacidad <- data.frame(read_csv("datos/capacidadasistencial.csv", locale = locale(encoding = "ISO-8859-1"))) # capacidad asistencial
 names(capacidad) <- tolower(names(capacidad))

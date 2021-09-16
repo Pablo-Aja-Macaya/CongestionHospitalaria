@@ -1,8 +1,6 @@
 
 # Notas:
 # V Gráfica que muestre el porcentaje de ocupación por día
-# - La gráfica de simulación poner las UCIs juntas porque la simulación no puede distinguir entre cada una. 
-#   Hay que calcular sus medianas y demás como si fuese un sólo grupo UCI
 # V Implementar limpieza de datos de dos tipos:
 #   - Quitando outliers mediante boxplots
 #   - Quitando outliers mediante boxplots, conservando los que tengan un valor cercano al primer y tercer cuartil cuando estos son iguales
@@ -10,6 +8,8 @@
 #   - Opción que no los filtre
 #   - Smoothear las gráficas con sliding window (https://stats.stackexchange.com/questions/3051/mean-of-a-sliding-window-in-r)
 # - Intentar comprobar a qué área sanitaria pertenece cada concello (igual un concello está dentro de una pero más cerca de otra, asegurarse)
+# - La gráfica de simulación poner las UCIs juntas porque la simulación no puede distinguir entre cada una. 
+#   Hay que calcular sus medianas y demás como si fuese un sólo grupo UCI
 
 library(Rlab)
 library(data.table)
@@ -20,6 +20,7 @@ library(DT)
 library(readr)
 library(dplyr)
 library(glue)
+library(zoo)
 
 # ---- Variables  ---- 
 
@@ -37,11 +38,12 @@ par.m.size <- m/par.m.loops # cuántas simulaciones por núcleo
 
 #  Variables de datos
 outlier.filter.type <- 'sliding_median' # tipo de filtro de outliers
+window.size <- 5 # para el filtro de outliers si se elige desplazamiento de ventana
 modo.weibull <- 'manual' # 'automatico', 'manual' (manual/formula)
 inf.time.avg <- 100 # dia medio donde ocurre la infección
 inf.time.sd <- 20 # desviación estándard del día donde ocurre la infección
 area.sanitaria <- "Coruña - Cee" # si se pone 'all' se eligen todas
-hosp.ref <- 'todos' # qué hospitales se seleccionan (1: referencias, 0: no referencias, 'all': todos)
+hosp.ref <- 'all' # qué hospitales se seleccionan (1: referencias, 0: no referencias, 'all': todos)
 areas.hospitales <- data.frame(read_csv("datos/areas_hospitales_correspondencia.csv")) # correspondencia entre hospital y área
 casos.org <- data.frame(read_csv("datos/sivies_agreg_area_sanitaria.csv")) # casos base
 
@@ -716,11 +718,37 @@ check.hosp.capacity <- function(hosp, icu, neto, t){
   # plot(sim.tot.hosp[sim.tot.hosp>=cap]-cap, ylab='Pacientes sin cama', xlab='Días')
 }
 
+check.hosp.capacity.interactive <- function(hosp, icu, neto, tipo, cap.stats, time){
+  datos <- data.frame(days=1:time, hos=hosp, icu=icu, cambio.neto=neto)
+  
+  p <- ggplot(data=datos,aes(x=days,y=hos)) + geom_line(color="#E69F00") +
+    geom_line(aes(x=days, y=icu), color="#56B4E9") + 
+    geom_line(aes(x=days, y=cambio.neto), color="#009E73") +
+    geom_line(aes(x=days, y=icu+hos), color="#111111") + theme_minimal()
+  
+  font <- list(
+    family = "Roboto Condensed",
+    size = 10,
+    color = "white"
+  )
+  label <- list(
+    bgcolor = "#232F34",
+    bordercolor = "transparent",
+    font = font
+  )
+  
+  ggplotly(p, tooltip="y") %>% 
+    style(hoverlabel = label) %>%
+    layout(hovermode = "x unified")
+}
+
 cambio.neto <- nHOS+nICU-(nDischarge+nDead+nH.Dead+nICU.Dead)
 check.hosp.capacity(nHOS, nICU, cambio.neto, t='Condicional')
+check.hosp.capacity.interactive(nHOS, nICU, cambio.neto, 'Condicional', area.capacity.stats, time=n.time)
 
 cambio.neto <- nHOS.inc+nICU.inc-(nDischarge.inc+nDead.inc+nH.Dead.inc+nICU.inc.Dead)
 check.hosp.capacity(nHOS.inc, nICU.inc, cambio.neto, t='No condicional')
+check.hosp.capacity.interactive(nHOS, nICU, cambio.neto, 'Condicional', area.capacity.stats, time=n.time)
 
 
 

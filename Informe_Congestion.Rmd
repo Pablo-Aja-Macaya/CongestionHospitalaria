@@ -47,6 +47,7 @@ library(DT)
 library(readr)
 library(dplyr)
 library(glue)
+library(zoo)
 ```
 
 # Variables
@@ -69,6 +70,7 @@ par.m.size <- m/par.m.loops # cuántas simulaciones por núcleo
 
 #  Variables de datos
 outlier.filter.type <- 'sliding_median' # tipo de filtro de outliers
+window.size <- 5 # para el filtro de outliers si se elige desplazamiento de ventana
 area.sanitaria <- "Ferrol" # c('Ourense - Verín - O Barco de Valdeorras', 'Coruña - Cee') # si se pone 'all' se eligen todas
 modo.weibull <- 'manual' # 'automatico', 'manual' (manual/formula)
 inf.time.avg <- 100 # dia medio donde ocurre la infección
