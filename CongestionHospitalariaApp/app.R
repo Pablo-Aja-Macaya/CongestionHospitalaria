@@ -255,7 +255,7 @@ get.pams <- function(df, age, sex){
 
 # Diccionario de traducciones
 translator <- Translator$new(translation_json_path = "./translations/translation.json")
-translator$set_translation_language("en") # lenguaje por defecto
+translator$set_translation_language("es") # lenguaje por defecto
 languages <- list('Español'='es', 'English'='en')
 languages.flags <- data.frame(val = c(c('Español'),c('English')))
 languages.flags$img <- c(
@@ -289,6 +289,7 @@ ui <- fluidPage(
                     table.dataTable tr.selected td, table.dataTable td.selected {
                         background-color: #008080 !important; color: white !important
                     }
+
                     '
                     )), # color de highlight de tabla
     tags$style(".fa-quesion {color: black}"),
@@ -334,8 +335,8 @@ ui <- fluidPage(
                                
                                selectInput("hosp.ref",
                                            strong(translator$t("Hospitals")),
-                                           choices = list('All'='all'),
-                                           selected = 'all'),
+                                           choices = list('Refference'=1),
+                                           selected = 1),
 
                                style = "info"),
                            # ---- Variables de simulación ----
@@ -488,18 +489,23 @@ ui <- fluidPage(
                                  uiOutput("analisis") %>% withSpinner()
 
                         ),
+                        tabPanel(translator$t("Outliers"),
+                                 h3(strong(translator$t("Outliers"))),
+                                 uiOutput("outliers_plot") %>% withSpinner()
+                                 
+                        ),
                         tabPanel(translator$t("Tables"),
-                                 h3(strong(translator$t("Capacity table"))),
+                                 h3(strong(translator$t("Capacity table")), downloadButton('download.capacidades', label = "Download")),
                                  dataTableOutput("table.capacidades"),
                                  br(),
                                  hr(),
                                  br(),
-                                 h3(strong(translator$t("Cases table"))),
+                                 h3(strong(translator$t("Cases table")), downloadButton('download.casos', label = "Download")),
                                  dataTableOutput("table.casos"),
                                  br(),
                                  hr(),
                                  br(),
-                                 h3(strong(translator$t("Hospitalized table"))),
+                                 h3(strong(translator$t("Hospitalized table")), downloadButton('download.hospitalizados', label = "Download")),
                                  dataTableOutput("table.hospitalizados"),
                                  br(),
                                  br(),
@@ -535,9 +541,9 @@ server <- function(input, output, session) {
         translator$set_translation_language(input$selected_language)
         
         hosp.ref.choices <- list()
-        hosp.ref.choices[[translator$t('All')]] <- 'all'
         hosp.ref.choices[[translator$t('Refference')]] <- 1
         hosp.ref.choices[[translator$t('Non refference')]] <- 0
+        hosp.ref.choices[[translator$t('All')]] <- 'all'
         updateSelectInput(session, 'hosp.ref', label = NULL, choices = hosp.ref.choices,
                           selected = NULL)
         
@@ -694,7 +700,7 @@ server <- function(input, output, session) {
         # Filtrar por referencia
         capacidad <- filter.ref(capacidad, input$hosp.ref)
         capacidad
-    }) %>% debounce(2000)# el debounce retrasa el proceso por si se eligen más de una zona (si no, se manda varias veces y retrasa mucho todo)
+    }) %>% debounce(1500) # el debounce retrasa el proceso por si se eligen más de una zona (si no, se manda varias veces y retrasa mucho todo)
     analisis.capacidad <- observe({
         capacidad <- capacidad.filter()
         outlier.filter.type <- input$outlier.filter.type
@@ -746,7 +752,7 @@ server <- function(input, output, session) {
                     # ---- Gráficas ----
                     # p1.with.outliers <- plot.interactive.hist(datos)
                     # p2.with.outliers  <- plot.interactive.total.beds(datos)
-                    # p3.with.outliers  <- plot.interactive.percent.patients(datos,u)
+                    p3.with.outliers  <- plot.interactive.percent.patients(datos,u)
                     
                     # ---- Filtrar outliers del total de camas ----
                     cat('---------------\n')
@@ -766,16 +772,16 @@ server <- function(input, output, session) {
                  
                     # ---- Gráficas ----
                     p1.without.outliers <- plot.interactive.hist(datos)
-                    # p2.without.outliers  <- plot.interactive.total.beds(datos)
+                    p2.without.outliers  <- plot.interactive.total.beds(datos)
                     p3.without.outliers  <- plot.interactive.percent.patients(datos,u)
                     
                     ################################################################
                     # ---- Análisis de capacidad junto ----
-                    annotations = list( 
+                    annotations_analisis = list( 
                         list( 
                             x = 0.2,  
                             y = 1.0,  
-                            text = "Histograma del total de camas",  
+                            text = translator$t("Total beds histogram"),  
                             xref = "paper",  
                             yref = "paper",  
                             xanchor = "center",  
@@ -785,7 +791,7 @@ server <- function(input, output, session) {
                         list( 
                             x = 0.8,  
                             y = 1,  
-                            text = "Porcentaje de ocupación",  
+                            text = translator$t("Occupation percentage"),  
                             xref = "paper",  
                             yref = "paper",  
                             xanchor = "center",  
@@ -795,51 +801,52 @@ server <- function(input, output, session) {
                     )
                 
 
-                    name <- paste(gsub(" ", "", c(h, u), fixed = TRUE), collapse='_')
+                    name <- paste(gsub(" ", "", c('analisis',h, u), fixed = TRUE), collapse='_')
                     plot.title <- glue("<b>{h}</b>\n{u}")
-                    print(name)
                     output[[name]] <- renderPlotly({
                         subplot(p1.without.outliers, p3.without.outliers, margin = 0.04) %>% 
                             layout(title = list(text=plot.title, font=list(size=15)),
                                    margin = list(l=20, r=20, b=20, t=100),
-                                   annotations = annotations)
+                                   annotations = annotations_analisis, hovermode = "x unified")
                     })
                     
                     
-
-                
                     ################################################################
-                    # # ---- Comparación de outliers vs no outliers ----
-                    # 
-                    # annotations = list( 
-                    #     list( 
-                    #         x = 0.23,  
-                    #         y = 1.0,  
-                    #         text = "Con outliers",  
-                    #         xref = "paper",  
-                    #         yref = "paper",  
-                    #         xanchor = "center",  
-                    #         yanchor = "bottom",  
-                    #         showarrow = FALSE 
-                    #     ),  
-                    #     list( 
-                    #         x = 0.77,  
-                    #         y = 1,  
-                    #         text = "Datos tratados",  
-                    #         xref = "paper",  
-                    #         yref = "paper",  
-                    #         xanchor = "center",  
-                    #         yanchor = "bottom",  
-                    #         showarrow = FALSE 
-                    #     )
-                    # )
-                    # 
-                    # p <- subplot(p3.with.outliers, p3.without.outliers, margin = 0.04) %>% 
-                    #     layout(title = glue("<b>{h}</b>\n{u}"),
-                    #            titlefont=list(size=15),
-                    #            margin = list(l=20, r=20, b=20, t=100),
-                    #            annotations = annotations)
-                    # output[[glue('{h}__{u}')]] <- renderPlotly({p})
+                    # ---- Comparación de outliers vs no outliers ----
+
+                    annotations_outliers = list(
+                        list(
+                            x = 0.23,
+                            y = 1.0,
+                            text = "Con outliers",
+                            xref = "paper",
+                            yref = "paper",
+                            xanchor = "center",
+                            yanchor = "bottom",
+                            showarrow = FALSE
+                        ),
+                        list(
+                            x = 0.77,
+                            y = 1,
+                            text = "Datos tratados",
+                            xref = "paper",
+                            yref = "paper",
+                            xanchor = "center",
+                            yanchor = "bottom",
+                            showarrow = FALSE
+                        )
+                    )
+
+
+                    name <- paste(gsub(" ", "", c('outliers',h, u), fixed = TRUE), collapse='_')
+                    plot.title <- glue("<b>{h}</b>\n{u}")
+                    output[[name]] <- renderPlotly({
+                        subplot(p3.with.outliers, p3.without.outliers, margin = 0.04) %>%
+                            layout(title = list(text=plot.title, font=list(size=15)),
+                                   margin = list(l=20, r=20, b=20, t=100),
+                                   annotations = annotations_outliers, hovermode = "x unified",
+                                   yaxis=list(anchor="x"))
+                    })
                 
                 
                     # Meter resultados en la lista
@@ -874,14 +881,22 @@ server <- function(input, output, session) {
 
     })
 
-    # output$analisis <- renderPlot(analisis.capacidad(), height=3000)
     output$analisis <- renderUI({
-        # a <- "COMPLEXO HOSPITALARIO UNIVERSITARIO A CORUÑA (CHUAC)"
-        # b <- "Hospitalización convencional"
         plot.output.list <- list()
         for (h in capacidades$hospitales ){
             for (u in capacidades$unidades){
-                name <- paste(gsub(" ", "", c(h, u), fixed = TRUE), collapse='_')
+                name <- paste(gsub(" ", "", c('analisis',h, u), fixed = TRUE), collapse='_')
+                plot.output.list[[name]] <- plotlyOutput(name, inline=TRUE)
+            }
+        }
+        do.call(tagList, plot.output.list)
+    })
+    
+    output$outliers_plot <- renderUI({
+        plot.output.list <- list()
+        for (h in capacidades$hospitales ){
+            for (u in capacidades$unidades){
+                name <- paste(gsub(" ", "", c('outliers',h, u), fixed = TRUE), collapse='_')
                 plot.output.list[[name]] <- plotlyOutput(name, inline=TRUE)
             }
         }
@@ -1471,8 +1486,32 @@ server <- function(input, output, session) {
     output$prob.rc.real <- renderText(proporciones$prob.rc.real)
     output$prob.w <- renderText(proporciones$prob.w)
     output$prob.m <- renderText(proporciones$prob.m)
-
     
+    # Descarga de datos
+    output$download.capacidades <- downloadHandler(
+      filename = function() {
+        paste('capacidades-', Sys.Date(), '.csv', sep='')
+      },
+      content = function(con) {
+        write.csv(capacidad.filter(), con)
+      }
+    )
+    output$download.casos <- downloadHandler(
+        filename = function() {
+            paste('casos-', Sys.Date(), '.csv', sep='')
+        },
+        content = function(con) {
+            write.csv(casos.filter(), con)
+        }
+    )
+    output$download.hospitalizados <- downloadHandler(
+        filename = function() {
+            paste('hospitalizados-', Sys.Date(), '.csv', sep='')
+        },
+        content = function(con) {
+            write.csv(get.hospitalizados(), con)
+        }
+    )
 }
 
 # Run the app ----

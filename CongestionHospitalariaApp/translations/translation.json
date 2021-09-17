@@ -82,16 +82,19 @@
       {"en": "Hospitalized proportions (prob.rc.real)", "es": "Proporciones muestrales de hospitalizados (prob.rc.real)"},
 
 
-      {"en": "Ocupation percentage", "es": "Porcentaje de ocupación"},
+      {"en": "Occupation percentage", "es": "Porcentaje de ocupación"},
       {"en": "Total occupied", "es": "Total ocupadas"},
       {"en": "Occupied by COVID-19", "es": "Ocupadas por COVID-19"},
       {"en": "Occupied with other causes", "es": "Ocupadas por otras causas"},
+      {"en": "Total beds histogram", "es": "Histograma del total de camas"},
       
 
       {"en": "Non sanitary centers", "es": "Centros no sanitarios"},
       {"en": "Conventional hospitalization", "es": "Hospitalización convencional"},
       {"en": "ICU (respirator)", "es": "U. Críticas CON respirador"},
       {"en": "ICU (no respirator)", "es": "U. Críticas SIN respirador"}
+      
+      
 
     ]
 }

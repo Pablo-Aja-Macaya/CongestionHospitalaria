@@ -10,6 +10,7 @@ library(glue)
 library(dplyr)
 library(zoo)
 
+
 #  ---- Variables de datos ----
 # area.sanitaria <- "all" # "Coruña - Cee" # c('Ourense - Verín - O Barco de Valdeorras', 'Coruña - Cee') # si se pone 'all' se eligen todas
 # hosp.ref <- 1 # qué hospitales se seleccionan (1: referencias, 0: no referencias, 'all': todos)
@@ -208,46 +209,45 @@ for (h in hospitales){
         showarrow = FALSE 
       )
     )
-    
-    capacidad.plots[[glue('{h}__{u}')]] <- subplot(p1.without.outliers, p3.without.outliers, margin = 0.04) %>% 
-                                          layout(title = glue("<b>{h}</b>\n{u}"),
-                                                 titlefont=list(size=15),
-                                                 margin = list(l=20, r=20, b=20, t=120),
-                                                 annotations = annotations)
-    
+  
+    subplot(p1.without.outliers, p3.without.outliers, margin = 0.04) %>% 
+      layout(title = list(text=glue("<b>{h}</b>\n{u}"), font=list(size=15)),
+             margin = list(l=20, r=20, b=20, t=120),
+             annotations = annotations, hovermode = "x unified"
+      )
     
     ################################################################
-    # ---- Comparación de outliers vs no outliers ----
-    
-    annotations = list( 
-      list( 
-        x = 0.23,  
-        y = 1.0,  
-        text = "Con outliers",  
-        xref = "paper",  
-        yref = "paper",  
-        xanchor = "center",  
-        yanchor = "bottom",  
-        showarrow = FALSE 
-      ),  
-      list( 
-        x = 0.77,  
-        y = 1,  
-        text = "Datos tratados",  
-        xref = "paper",  
-        yref = "paper",  
-        xanchor = "center",  
-        yanchor = "bottom",  
-        showarrow = FALSE 
-      )
-    )
-    
-    outliers.plots[[glue('{h}__{u}')]] <- subplot(p3.with.outliers, p3.without.outliers, margin = 0.04) %>% 
-                                          layout(title = glue("<b>{h}</b>\n{u}"),
-                                                 titlefont=list(size=15),
-                                                 margin = list(l=20, r=20, b=20, t=120),
-                                                 annotations = annotations)
-    
+    # # ---- Comparación de outliers vs no outliers ----
+    # 
+    # annotations = list( 
+    #   list( 
+    #     x = 0.23,  
+    #     y = 1.0,  
+    #     text = "Con outliers",  
+    #     xref = "paper",  
+    #     yref = "paper",  
+    #     xanchor = "center",  
+    #     yanchor = "bottom",  
+    #     showarrow = FALSE 
+    #   ),  
+    #   list( 
+    #     x = 0.77,  
+    #     y = 1,  
+    #     text = "Datos tratados",  
+    #     xref = "paper",  
+    #     yref = "paper",  
+    #     xanchor = "center",  
+    #     yanchor = "bottom",  
+    #     showarrow = FALSE 
+    #   )
+    # )
+    # 
+    # outliers.plots[[glue('{h}__{u}')]] <- subplot(p3.with.outliers, p3.without.outliers, margin = 0.04) %>% 
+    #                                       layout(title = glue("<b>{h}</b>\n{u}"),
+    #                                              titlefont=list(size=15),
+    #                                              margin = list(l=20, r=20, b=20, t=120),
+    #                                              annotations = annotations)
+    # 
     # Meter resultados en la lista
     hospital.capacity.stats[[h]][[u]] <- c(mediana, percentiles[['10%']], percentiles[['90%']])
   }
