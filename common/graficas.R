@@ -59,7 +59,7 @@ plot.interactive.total.beds <- function(datos, title='Total camas', labs=c('Fech
 
 ################################################################
 
-plot.interactive.percent.patients <- function(datos, u, title='Total camas', labs=c('Fecha envío','Camas')){
+plot.interactive.percent.patients <- function(datos, u, title='', labs=c('Fecha envío','Camas')){
   # ---- Plot de porcentaje de ocupación a lo largo de la pandemia ----
   # Cálculo de porcentajes
   ocupados.covid.pct <- (datos$ocupadas_covid19/datos$total_camas)*100
@@ -67,9 +67,11 @@ plot.interactive.percent.patients <- function(datos, u, title='Total camas', lab
   ocupados.total.pct <- ((datos$ocupadas_covid19+datos$ocupadas_no_covid19)/datos$total_camas)*100
   df.ocupados.pct <- data.frame(ocupados.covid.pct, ocupados.nocovid.pct, ocupados.total.pct, fecha_envio=datos$fecha_envio)
   
-  p <- plot_ly(df.ocupados.pct, x=~fecha_envio, y=~ocupados.covid.pct, type='scatter', mode='lines', name='Ocupadas COVID19') %>%
-    add_trace(y=~ocupados.nocovid.pct, name='Ocupadas no COVID19') %>%
-    add_trace(y=~ocupados.total.pct, name='Total')%>% layout(legend = list(orientation = 'h'))
+  p <- plot_ly(df.ocupados.pct, x=~fecha_envio, y=~ocupados.covid.pct, type='scatter', mode='lines', name='Ocupadas COVID19', color="firebrick4") %>%
+    add_trace(y=~ocupados.nocovid.pct, name='Ocupadas no COVID19', color="dodgerblue3") %>%
+    add_trace(y=~ocupados.total.pct, name='Total', color="darkgreen") %>% 
+    layout(legend = list(orientation = 'h', xanchor = "center", x = 0.5), 
+           yaxis=list(range=c(-10,100), title='Ocupadas (%)'))
   
   # # ---- Dependiendo de la unidad el porcentaje de ocupación es más o menos preocupante ----
   # # https://www.mscbs.gob.es/profesionales/saludPublica/ccayes/alertasActual/nCov/documentos/Actuaciones_respuesta_COVID_26.03.2021.pdf
@@ -109,29 +111,49 @@ plot.interactive.percent.patients <- function(datos, u, title='Total camas', lab
   return(p)
 }
 
-
-annotations = list( 
-  list( 
-    x = 0.2,  
-    y = 1.0,  
-    text = "Histograma del total de camas",  
-    xref = "paper",  
-    yref = "paper",  
-    xanchor = "center",  
-    yanchor = "bottom",  
-    showarrow = FALSE 
-  ),  
-  list( 
-    x = 0.8,  
-    y = 1,  
-    text = "Porcentaje de ocupación",  
-    xref = "paper",  
-    yref = "paper",  
-    xanchor = "center",  
-    yanchor = "bottom",  
-    showarrow = FALSE 
-  )
-)
+# 
+# annotations = list( 
+#   list( 
+#     x = 0.2,  
+#     y = 1.0,  
+#     text = "Histograma del total de camas",  
+#     xref = "paper",  
+#     yref = "paper",  
+#     xanchor = "center",  
+#     yanchor = "bottom",  
+#     showarrow = FALSE 
+#   ),  
+#   list( 
+#     x = 0.8,  
+#     y = 1,  
+#     text = "Porcentaje de ocupación",  
+#     xref = "paper",  
+#     yref = "paper",  
+#     xanchor = "center",  
+#     yanchor = "bottom",  
+#     showarrow = FALSE 
+#  # annotations = list( 
+#   list( 
+#     x = 0.2,  
+#     y = 1.0,  
+#     text = "Histograma del total de camas",  
+#     xref = "paper",  
+#     yref = "paper",  
+#     xanchor = "center",  
+#     yanchor = "bottom",  
+#     showarrow = FALSE 
+#   ),  
+#   list( 
+#     x = 0.8,  
+#     y = 1,  
+#     text = "Porcentaje de ocupación",  
+#     xref = "paper",  
+#     yref = "paper",  
+#     xanchor = "center",  
+#     yanchor = "bottom",  
+#     showarrow = FALSE 
+#   )
+# )
 # 
 # # Histograma
 # p1 <- plot_ly(datos, x = ~total_camas, type = "histogram", name='Camas')
