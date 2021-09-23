@@ -12,7 +12,7 @@ library(zoo)
 
 
 #  ---- Variables de datos ----
-area.sanitaria <- "all" # "Coruña - Cee" # c('Ourense - Verín - O Barco de Valdeorras', 'Coruña - Cee') # si se pone 'all' se eligen todas
+area.sanitaria <- "Coruña - Cee" # "Coruña - Cee" # c('Ourense - Verín - O Barco de Valdeorras', 'Coruña - Cee') # si se pone 'all' se eligen todas
 hosp.ref <- 1 # qué hospitales se seleccionan (1: referencias, 0: no referencias, 'all': todos)
 outlier.filter.type <- 'sliding_median' # tipo de filtro de outliers
 window.size <- 5 # para el filtro de outliers si se elige desplazamiento de ventana
@@ -257,51 +257,107 @@ for (h in hospitales){
 }
 
 # ---- Resultados en conjunto ----
-get.unidades.list <- function(cap, sel.col = 'pct_covid'){
+get.unidades.list <- function(cap, sel.cols = c('pct_covid')){
   # Obtiene una lista de listas. 
   # Cada lista pertenece a un unidad, y contiene una lista con un dataframe para cada hospital
   # Este dataframe puede tener una columna seleccionada ('pct_covid','pct_no_covid','total_camas')
   unidades.stat.list <- list()
+  unidades <- sort(unique(capacidad$unidad))
+  hospitales <- sort(unique(capacidad$hospital))
   for (u in unidades){
     unidades.stat.list[[u]] <- list()
     for (h in hospitales){
       df <- subset(cap, hospital==h & unidad==u)[,c('fecha_envio','ocupadas_covid19', 'ocupadas_no_covid19','total_camas')]
       df$pct_covid <- 100 * df[['ocupadas_covid19']] / df[['total_camas']]
       df$pct_no_covid <- 100 * df[['ocupadas_no_covid19']] / df[['total_camas']]
-      unidades.stat.list[[u]][[h]] <- df[,c('fecha_envio', sel.col)]
+      df$pct_total <- 100 * (df[['ocupadas_covid19']] + df[['ocupadas_no_covid19']]) / df[['total_camas']]
+      unidades.stat.list[[u]][[h]] <- df[,c('fecha_envio', sel.cols)]
     }
   }
   return(unidades.stat.list)
 }
 
-reduce.unidades.stat.list <- function(l){
-  # Hace un merge de una lsita de data.frames según una llave primaria (by='fecha_envio')
-  reduced.unit <- Reduce(function(df1, df2) merge(df1, df2, by='fecha_envio', all.x=T), l)
+reduce.unidades.stat.list <- function(l, c){
+  # Hace un merge de una lista de data.frames según una llave primaria (by='fecha_envio')
+  # y una columna objetivo
+  reduced.unit <- Reduce(function(df1, df2) merge(df1[,c('fecha_envio', c)], df2[,c('fecha_envio', c)], by='fecha_envio', all.x=T), l)
   return(reduced.unit)
 }
 
-plot.merged.capacity <- function(cap, sel.col = 'pct_covid', sel.stat.function = 'median'){
-  unidades.stat.list <- get.unidades.list(cap, sel.col)
+plot.merged.capacity <- function(cap, sel.cols = c('pct_covid'), sel.stat.function = 'median'){
+  unidades.stat.list <- get.unidades.list(cap, sel.cols)
   
+  plot.list <- list()
   for(u in names(unidades.stat.list)){
-    reduced.unit <- reduce.unidades.stat.list(unidades.stat.list[[u]])
-    
-    if(sel.stat.function=='median'){
-      sel.stat <- apply(reduced.unit[,-1], 1, function(x){median(x,na.rm=T)})
-    } else if (sel.stat.function=='mean'){
-      sel.stat <- rowMeans(reduced.unit[,-1], na.rm=T)
+    df.list <- list()
+    for(c in sel.cols){
+      reduced.unit <- reduce.unidades.stat.list(unidades.stat.list[[u]], c)
+      
+      if(sel.stat.function=='median'){
+        sel.stat <- apply(reduced.unit[,-1], 1, function(x){median(x,na.rm=T)})
+      } else if (sel.stat.function=='mean'){
+        sel.stat <- rowMeans(reduced.unit[,-1], na.rm=T)
+      }
+      
+      df.list[[c]] <- data.frame(fecha_envio=reduced.unit[['fecha_envio']], sel.stat)
+      
     }
     
-    p <- plot_ly(reduced.unit, x = ~fecha_envio, y=~sel.stat, type='scatter', mode='lines') %>%
-      layout(title = glue("{u}\n {sel.col}"))
-    print(p)
+    res.df <- reduce.unidades.stat.list(df.list, 'sel.stat')
+    
+    p <- plotly_build(plot_ly(res.df, x = ~fecha_envio, y=~sel.stat.x, type='scatter', mode='lines', name=sel.cols[1], color="firebrick4") %>%
+                        add_trace(y=~sel.stat.y, name=sel.cols[2], color="dodgerblue3") %>%
+                        layout(title = glue("{u}\n {sel.cols}")))
+    plot.list[[u]] <- p
+  
   }
-
+  return(plot.list)
 }
 
-plot.merged.capacity(capacidad, 'pct_covid', 'mean')
-# plot(reduced.unit[,1], rowMeans(reduced.unit[,-1], na.rm=T))
-# plot(reduced.unit[,1], apply(reduced.unit[,-1], 1, function(x){median(x,na.rm=T)}))
+plots <- plot.merged.capacity(capacidad, c('pct_covid','pct_no_covid'), 'mean')
+
+{
+  annotations_outliers = list(
+    list(
+      x = 0.15,
+      y = 1.0,
+      text = unidades[1],
+      xref = "paper",
+      yref = "paper",
+      xanchor = "center",
+      yanchor = "bottom",
+      showarrow = FALSE
+    ),
+    list(
+      x = 0.5,
+      y = 1,
+      text = unidades[2],
+      xref = "paper",
+      yref = "paper",
+      xanchor = "center",
+      yanchor = "bottom",
+      showarrow = FALSE
+    ),
+    list(
+      x = 0.85,
+      y = 1,
+      text = unidades[3],
+      xref = "paper",
+      yref = "paper",
+      xanchor = "center",
+      yanchor = "bottom",
+      showarrow = FALSE
+    )
+  )
+}
+
+subplot(plots, margin = 0.04, shareY=TRUE) %>%
+  layout(title = list(text='Camas por unidad en el conjunto de áreas', font=list(size=15)),
+         margin = list(l=20, r=20, b=20, t=100),
+         annotations = annotations_outliers, hovermode = "x unified",
+         yaxis=list(hoverformat = ".2f"),
+         legend = list(orientation = 'h', xanchor = "center", x = 0.5),
+         showlegend = F)
 
 
 # ---- Resultados de cada hospital por unidad ----
