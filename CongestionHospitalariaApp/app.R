@@ -842,11 +842,11 @@ server <- function(input, output, session) {
                     name <- paste(gsub(" ", "", c('outliers',h, u), fixed = TRUE), collapse='_')
                     plot.title <- glue("<b>{h}</b>\n{u}")
                     output[[name]] <- renderPlotly({
-                        subplot(style(p3.with.outliers, showlegend=F), p3.without.outliers, margin = 0.04, shareY= TRUE) %>%
+                        subplot(style(p3.with.outliers, showlegend=F), p3.without.outliers, margin = 0.04, shareY=TRUE) %>%
                             layout(title = list(text=plot.title, font=list(size=15)),
                                    margin = list(l=20, r=20, b=20, t=100),
                                    annotations = annotations_outliers, hovermode = "x unified",
-                                   yaxis=list(anchor="x", hoverformat = ".2f"))
+                                   yaxis=list(hoverformat = ".2f"))
                     })
                 
                 
