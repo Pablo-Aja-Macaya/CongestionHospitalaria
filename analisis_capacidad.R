@@ -12,7 +12,7 @@ library(zoo)
 
 
 #  ---- Variables de datos ----
-area.sanitaria <- "Coruña - Cee" # "Coruña - Cee" # c('Ourense - Verín - O Barco de Valdeorras', 'Coruña - Cee') # si se pone 'all' se eligen todas
+area.sanitaria <- "all" # "Coruña - Cee" # c('Ourense - Verín - O Barco de Valdeorras', 'Coruña - Cee') # si se pone 'all' se eligen todas
 hosp.ref <- 1 # qué hospitales se seleccionan (1: referencias, 0: no referencias, 'all': todos)
 outlier.filter.type <- 'sliding_median' # tipo de filtro de outliers
 window.size <- 5 # para el filtro de outliers si se elige desplazamiento de ventana
@@ -183,7 +183,7 @@ for (h in hospitales){
     p3.without.outliers  <- plot.interactive.percent.patients(datos,u)
     
     ################################################################
-    # ---- Análisis de capacidad junto ----
+    # ---- Análisis de capacidad individual ----
     annotations = list( 
       list( 
         x = 0.2,  
@@ -257,95 +257,13 @@ for (h in hospitales){
 }
 
 # ---- Resultados en conjunto ----
-get.unidades.list <- function(cap, sel.cols = c('ocupados.covid.pct')){
-  # Obtiene una lista de listas. 
-  # Cada lista pertenece a un unidad, y contiene una lista con un dataframe para cada hospital
-  # Estructura:
-  # --> Unidad1
-  # ----> df.hospital1
-  # -------> fecha_envio | ocupados.covid.pct | ocupados.nocovid.pct
-  unidades.stat.list <- list()
-  unidades <- sort(unique(capacidad$unidad))
-  hospitales <- sort(unique(capacidad$hospital))
-  for (u in unidades){
-    unidades.stat.list[[u]] <- list()
-    for (h in hospitales){
-      df <- subset(cap, hospital==h & unidad==u)[,c('fecha_envio','ocupadas_covid19', 'ocupadas_no_covid19','total_camas')]
-      df$ocupados.covid.pct <- 100 * df[['ocupadas_covid19']] / df[['total_camas']]
-      df$ocupados.nocovid.pct <- 100 * df[['ocupadas_no_covid19']] / df[['total_camas']]
-      df$ocupados.total.pct <- 100 * sum(df[['ocupadas_covid19']] + df[['ocupadas_no_covid19']], na.rm=T) / df[['total_camas']]
-      unidades.stat.list[[u]][[h]] <- df[,c('fecha_envio', sel.cols)]
-    }
-  }
-  return(unidades.stat.list)
-}
+plots <- plot.merged.capacity(capacidad, c('ocupados.covid.pct','ocupados.nocovid.pct','ocupados.total.pct'), 'mean', c("COVID19", "No COVID19", "Total"))
 
-reduce.unidades.stat.list <- function(l, c){
-  # Hace un merge de una lista de data.frames según una llave primaria (by='fecha_envio')
-  # y una columna objetivo
-  reduced.unit <- Reduce(function(df1, df2) merge(df1[,c('fecha_envio', c)], df2[,c('fecha_envio', c)], by='fecha_envio', all.x=T), l)
-  return(reduced.unit)
-}
-
-get.sel.stat.function <- function(df, sel.stat.function='median'){
-  # Aplica una función sobre un dataframe, el cual su primera columna debe ser un id
-  # que no se usa
-  if(sel.stat.function=='median'){
-    sel.stat <- apply(df[,-1], 1, function(x){median(x,na.rm=T)})
-  } else if (sel.stat.function=='mean'){
-    sel.stat <- rowMeans(df[,-1], na.rm=T)
-  }
-  return(sel.stat)
-}
-
-plot.merged.capacity <- function(cap, sel.cols = c('ocupados.covid.pct'), sel.stat.function = 'median'){
-  # Obtener una lista de listas, cada una con un dataframe correspondiente a 
-  # datos de una combinación de hospital-unidad (ej: porcentaje de camas ocupadas por covid)
-  # Estructura:
-  # --> Unidad1
-  # ----> df.hospital1
-  # -------> fecha_envio | ocupados.covid.pct | ocupados.nocovid.pct
-  unidades.stat.list <- get.unidades.list(cap, sel.cols)
-  
-  plot.list <- list()
-  for(u in names(unidades.stat.list)){
-    df.list <- list()
-    for(c in sel.cols){
-      # Se reducen los dataframes de todos los hospitales en la lista, 
-      # con la llave primaria siendo fecha_envio y la columna elegida c,
-      # obteniendo un dataframe de varias columnas (fecha_envio, stat_hosp1, stat_hosp2...)
-      reduced.unit <- reduce.unidades.stat.list(unidades.stat.list[[u]], c)
-      
-      # Se reducen las columnas usando la función elegida con sel.stat.function
-      # (Ej: mediana de las columnas de interés)
-      sel.stat <- get.sel.stat.function(reduced.unit, sel.stat.function)
-      
-      # Almacenado en una lista
-      df.list[[c]] <- data.frame(fecha_envio=reduced.unit[['fecha_envio']], sel.stat)
-      
-    }
-    
-    # En df.list habrá una lista de dataframes, los cuales reducimos de nuevo según la fecha_envio
-    res.df <- reduce.unidades.stat.list(df.list, 'sel.stat')
-    # names(res.df) <- c('fecha_envio', sel.cols)
-    
-    p <- plotly_build(plot_ly(res.df, x = ~fecha_envio, y=~sel.stat.x, type='scatter', mode='lines', name=sel.cols[1], color="firebrick4") %>%
-                        add_trace(y=~sel.stat.y, name=sel.cols[2], color="dodgerblue3") %>%
-                        layout(title = glue("{u}\n {sel.cols}"),
-                               yaxis = list(range=c(-10,100), title='Ocupadas (%)')))
-    
-    plot.list[[u]] <- p
-  
-  }
-  return(plot.list)
-}
-
-plots <- plot.merged.capacity(capacidad, c('ocupados.covid.pct','ocupados.nocovid.pct'), 'mean')
-
-{
-  annotations_outliers = list(
+plot.title <- "<b>Porcentaje de camas ocupadas por unidad en el conjunto seleccionado</b>"
+{ # Anotaciones para gráficas (posición de títulos y textos)
+  annotations = list(
     list(
-      x = 0.15,
+      x = 0.5,
       y = 1.0,
       text = unidades[1],
       xref = "paper",
@@ -356,7 +274,7 @@ plots <- plot.merged.capacity(capacidad, c('ocupados.covid.pct','ocupados.nocovi
     ),
     list(
       x = 0.5,
-      y = 1,
+      y = 0.65,
       text = unidades[2],
       xref = "paper",
       yref = "paper",
@@ -365,8 +283,8 @@ plots <- plot.merged.capacity(capacidad, c('ocupados.covid.pct','ocupados.nocovi
       showarrow = FALSE
     ),
     list(
-      x = 0.85,
-      y = 1,
+      x = 0.5,
+      y = 0.3,
       text = unidades[3],
       xref = "paper",
       yref = "paper",
@@ -376,13 +294,10 @@ plots <- plot.merged.capacity(capacidad, c('ocupados.covid.pct','ocupados.nocovi
     )
   )
 }
-
-plot.title <- "<b>Porcentaje de camas ocupadas por unidad en el conjunto seleccionado</b>"
-subplot(plots, margin = 0.04, shareY=TRUE) %>%
+subplot(plots, margin = 0.04, nrows = 3, shareX=TRUE) %>%
   layout(title = list(text=plot.title, font=list(size=15)),
          margin = list(l=20, r=20, b=20, t=100),
-         annotations = annotations_outliers, hovermode = "x unified",
-         yaxis=list(hoverformat = ".2f"),
+         annotations = annotations, hovermode = "x unified",
          legend = list(orientation = 'h', xanchor = "center", x = 0.5),
          showlegend = F)
 

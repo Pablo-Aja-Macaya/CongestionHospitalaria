@@ -494,6 +494,11 @@ ui <- fluidPage(
                                  uiOutput("outliers_plot") %>% withSpinner()
                                  
                         ),
+                        tabPanel(translator$t("Merged analisis"),
+                                 h3(strong(translator$t("Merged analisis"))),
+                                 plotlyOutput('analisis.capacidad.conjunto') %>% withSpinner(),
+                                 hr(),br(),br()
+                        ),
                         tabPanel(translator$t("Tables"),
                                  h3(strong(translator$t("Capacity table")), downloadButton('download.capacidades', label = "Download")),
                                  dataTableOutput("table.capacidades"),
@@ -902,6 +907,55 @@ server <- function(input, output, session) {
             }
         }
         do.call(tagList, plot.output.list)
+    })
+    
+    analisis.capacidad.conjunto <- reactive({
+        plots <- plot.merged.capacity(capacidad.filter(), c('ocupados.covid.pct','ocupados.nocovid.pct','ocupados.total.pct'), 'mean', c("COVID19", "No COVID19", "Total"))
+        
+        plot.title <- "<b>Porcentaje de camas ocupadas por unidad en el conjunto seleccionado</b>"
+        { # Anotaciones para gráficas (posición de títulos y textos)
+            annotations = list(
+                list(
+                    x = 0.5,
+                    y = 1.0,
+                    text = unidades[1],
+                    xref = "paper",
+                    yref = "paper",
+                    xanchor = "center",
+                    yanchor = "bottom",
+                    showarrow = FALSE
+                ),
+                list(
+                    x = 0.5,
+                    y = 0.65,
+                    text = unidades[2],
+                    xref = "paper",
+                    yref = "paper",
+                    xanchor = "center",
+                    yanchor = "bottom",
+                    showarrow = FALSE
+                ),
+                list(
+                    x = 0.5,
+                    y = 0.3,
+                    text = unidades[3],
+                    xref = "paper",
+                    yref = "paper",
+                    xanchor = "center",
+                    yanchor = "bottom",
+                    showarrow = FALSE
+                )
+            )
+        }
+
+        
+        subplot(plots, margin = 0.04, nrows = 3, shareX=TRUE) %>%
+            layout(title = list(text=plot.title, font=list(size=15)),
+                   margin = list(l=20, r=20, b=20, t=100),
+                   annotations = annotations, hovermode = "x unified",
+                   legend = list(orientation = 'h', xanchor = "center", x = 0.5),
+                   showlegend = F, height=1000)
+        
     })
     
     ##############################################################
@@ -1475,6 +1529,7 @@ server <- function(input, output, session) {
     observe({
         output$res.condicional <- renderPlotly(plot.condicional.res())
         output$res.incondicional <- renderPlotly(plot.incondicional.res())
+        output$analisis.capacidad.conjunto <- renderPlotly(analisis.capacidad.conjunto())
     })
     
 
