@@ -2,6 +2,8 @@
   "cultural_date_format": "%d-%m-%Y",
   "languages": ["en","es"],
   "translation": [
+      {"en": "CEDCOVID", "es": "CEDCOVID"},
+      {"en": "Outliers", "es": "Valores atípicos"},
       {"en": "Hospital congestion", "es": "Congestión hospitalaria"},
       {"en": "Change language", "es": "Cambiar idioma"},
       
@@ -10,11 +12,13 @@
       {"en": "Cases", "es": "Casos"},
       {"en": "Hospitalized", "es": "Hospitalizados"},
 
-      {"en": "Capacity analysis", "es": "Análisis de capacidad"},
+      {"en": "Individual capacity analysis", "es": "Análisis de capacidad individual"},
       {
         "en": "The analysis indicates, for each hospital and unit (ICU, conventional), its capacity (black), the number of occupied beds (COVID, red or non Covid, blue), the area where the avaliable beds  orbit (purple) and the days where a limit was achieved (red columns).", 
         "es": "El análisis indica, para cada hospital y unidad (UCI, convencional...), la capacidad de esta (negro), el número de camas ocupadas (COVID, rojo o no COVID, azul), el área donde se mueve la cantidad de camas disponibles (morado) y los días en los que se superaron algún límite (columnas rojas)."
       },
+      
+      {"en": "Merged capacity analysis", "es": "Análisis de capacidad en conjunto"},
       
       {"en": "Tables", "es": "Tablas"},
       {"en": "Capacity table", "es": "Tabla de capacidades"},

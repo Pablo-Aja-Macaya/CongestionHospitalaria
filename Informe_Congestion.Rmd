@@ -15,6 +15,12 @@ output:
   margin-left: auto;
   margin-right: auto;
 }
+
+.center {
+  display: table;
+  margin-right: auto;
+  margin-left: auto;
+}
 </style>
 ```
 ```{r global.options, include = FALSE}
@@ -91,6 +97,9 @@ create.table <- function(df, capt){
                   htmltools::em(capt)
                 ))
 }
+
+# Gráficas
+source('./common/graficas.R')
 ```
 
 ```{r, include=FALSE, cache=FALSE}
@@ -126,11 +135,9 @@ Se filtran los datos de capacidad, seleccionando el área sanitaria elegida, y f
 ```{r, Filtrado de capacidad, echo=TRUE}
 ```
 
-## Cálculos previos
+## Función de filtrado de outliers
 
-En este paso se añade el cálculo del total de camas ocupadas al dataframe.
-
-```{r, Calculos previos, echo=TRUE}
+```{r, Función de filtrado de outliers, echo=TRUE}
 ```
 
 ## Capacidad en cada hospital
@@ -139,8 +146,11 @@ Se obtienen los hospitales y unidades presentes en los datos filtrados, ordenado
 
 Por último, se obtiene en la lista "hospital.capacity.stats" las estadísticas resumidas para cada hospital.
 
+<div class='center'>
 ```{r, Capacidad en cada hospital, echo=TRUE}
 ```
+</div>
+
 
 ## Resultados de cada hospital por unidad
 

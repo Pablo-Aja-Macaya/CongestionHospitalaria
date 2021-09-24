@@ -12,7 +12,7 @@ library(zoo)
 
 
 #  ---- Variables de datos ----
-area.sanitaria <- "all" # "Coruña - Cee" # c('Ourense - Verín - O Barco de Valdeorras', 'Coruña - Cee') # si se pone 'all' se eligen todas
+area.sanitaria <- 'Vigo' # "Coruña - Cee" # c('Ourense - Verín - O Barco de Valdeorras', 'Coruña - Cee') # si se pone 'all' se eligen todas
 hosp.ref <- 1 # qué hospitales se seleccionan (1: referencias, 0: no referencias, 'all': todos)
 outlier.filter.type <- 'sliding_median' # tipo de filtro de outliers
 window.size <- 5 # para el filtro de outliers si se elige desplazamiento de ventana
@@ -257,7 +257,7 @@ for (h in hospitales){
 }
 
 # ---- Resultados en conjunto ----
-plots <- plot.merged.capacity(capacidad, c('ocupados.covid.pct','ocupados.nocovid.pct','ocupados.total.pct'), 'mean', c("COVID19", "No COVID19", "Total"))
+plots <- plot.merged.capacity(capacidad, c('ocupados.covid.pct','ocupados.nocovid.pct','ocupados.total.pct'), 'mean', c("COVID19", "No COVID19", "Total"), outlier.filter.type, window.size)
 
 plot.title <- "<b>Porcentaje de camas ocupadas por unidad en el conjunto seleccionado</b>"
 { # Anotaciones para gráficas (posición de títulos y textos)

@@ -88,8 +88,8 @@ get.unidades.list <- function(cap, sel.cols = c('ocupados.covid.pct')){
   # ----> df.hospital1
   # -------> fecha_envio | ocupados.covid.pct | ocupados.nocovid.pct
   unidades.stat.list <- list()
-  unidades <- sort(unique(capacidad$unidad))
-  hospitales <- sort(unique(capacidad$hospital))
+  unidades <- sort(unique(cap$unidad))
+  hospitales <- sort(unique(cap$hospital))
   for (u in unidades){
     unidades.stat.list[[u]] <- list()
     for (h in hospitales){
@@ -118,18 +118,18 @@ get.sel.stat.function <- function(df, sel.stat.function='median'){
   # Aplica una función sobre un dataframe, el cual su primera columna debe ser un id
   # que no se usa
   if(sel.stat.function=='median'){
-    sel.stat <- apply(df[,-1], 1, function(x){median(x,na.rm=T)})
+    sel.stat <- apply(df[,-1,drop=F], 1, function(x){median(x,na.rm=T)})
   } else if (sel.stat.function=='mean'){
-    sel.stat <- rowMeans(df[,-1], na.rm=T)
+    sel.stat <- rowMeans(df[,-1,drop=F], na.rm=T)
   } else if (sel.stat.function=='quantile'){
     sel.stat <- quantile(df[,-1], probs = seq(0, 1, by= 0.1), na.rm=T)
   } else if (sel.stat.function=='sum'){
-    sel.stat <- rowSums(df[,-1], na.rm=T)
+    sel.stat <- rowSums(df[,-1,drop=F], na.rm=T)
   }
   return(sel.stat)
 }
 
-plot.merged.capacity <- function(cap, sel.cols = c('ocupados.covid.pct'), sel.stat.function = 'median', names=c(NA,NA,NA)){
+plot.merged.capacity <- function(cap, sel.cols = c('ocupados.covid.pct'), sel.stat.function = 'median', names=c(NA,NA,NA), outlier.filter.type, window.size){
   # Obtener una lista de listas, cada una con un dataframe correspondiente a 
   # datos de una combinación de hospital-unidad (ej: porcentaje de camas ocupadas por covid)
   # Estructura:
@@ -168,11 +168,19 @@ plot.merged.capacity <- function(cap, sel.cols = c('ocupados.covid.pct'), sel.st
     res.df <- reduce.unidades.stat.list(df.list, 'sel.stat')
     # names(res.df) <- c('fecha_envio', sel.cols)
     
+    # ---- Filtrar outliers del total de camas ----
+    cat('---------------\n')
+    res.df <- filter.outliers(res.df, filter.type=outlier.filter.type, sel.col='sel.stat.x', h, u, window.size = window.size)
+    res.df <- filter.outliers(res.df, filter.type=outlier.filter.type, sel.col='sel.stat.y', h, u, window.size = window.size)
+    res.df <- filter.outliers(res.df, filter.type=outlier.filter.type, sel.col='sel.stat', h, u, window.size = window.size)
+    
+    
     p <- plotly_build(plot_ly(res.df, x = ~fecha_envio, y=~sel.stat.x, type='scatter', mode='lines', name=names[1], color="firebrick4") %>%
                         add_trace(y=~sel.stat.y, name=names[2], color="dodgerblue3") %>%
                         add_trace(y=~sel.stat, name=names[3], color="green") %>%
                         layout(title = glue("{u}\n {sel.cols}"),
-                               yaxis = list(range=c(-10,100), title='Ocupadas (%)', hoverformat = ".2f%")))
+                               yaxis = list(range=c(-10,100), title='Ocupadas (%)', hoverformat = ".2f%"))
+                      )
     
     plot.list[[u]] <- p
     

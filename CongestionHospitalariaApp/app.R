@@ -426,7 +426,7 @@ ui <- fluidPage(
                                style = "info"),
                            # ---- Outliers ----
                            bsCollapsePanel(
-                               h4(strong('Outliers')),
+                               h4(strong(translator$t("Outliers"))),
                                selectInput("outlier.filter.type",
                                            strong(translator$t("Outlier removal")),
                                            choices = list('Sliding window median'='sliding_median'),
@@ -483,8 +483,8 @@ ui <- fluidPage(
         mainPanel(
             # ---- Tabsets ----
             tabsetPanel(id='tabset_resultados', type = "tabs",
-                        tabPanel(translator$t("Capacity analysis"),
-                                 h3(strong(translator$t("Capacity analysis")),circleButton("helpbox_analisis_capacidad_button",icon("question"),size='xs')),
+                        tabPanel(translator$t("Individual capacity analysis"),
+                                 h3(strong(translator$t("Individual capacity analysis")),circleButton("helpbox_analisis_capacidad_button",icon("question"),size='xs')),
                                  uiOutput("helpbox_analisis_capacidad"),
                                  uiOutput("analisis") %>% withSpinner()
 
@@ -494,8 +494,8 @@ ui <- fluidPage(
                                  uiOutput("outliers_plot") %>% withSpinner()
                                  
                         ),
-                        tabPanel(translator$t("Merged analisis"),
-                                 h3(strong(translator$t("Merged analisis"))),
+                        tabPanel(translator$t("Merged capacity analysis"),
+                                 h3(strong(translator$t("Merged capacity analysis"))),
                                  plotlyOutput('analisis.capacidad.conjunto') %>% withSpinner(),
                                  hr(),br(),br()
                         ),
@@ -704,6 +704,8 @@ server <- function(input, output, session) {
         capacidad <- filter.cap(capacidad.org, input$area.sanitaria)
         # Filtrar por referencia
         capacidad <- filter.ref(capacidad, input$hosp.ref)
+        # Quitar la unidad de centro no sanitario porque no aporta nada
+        capacidad <- subset(capacidad, unidad!='Centros no sanitarios')
         capacidad
     }) %>% debounce(1500) # el debounce retrasa el proceso por si se eligen más de una zona (si no, se manda varias veces y retrasa mucho todo)
     analisis.capacidad <- observe({
@@ -717,9 +719,6 @@ server <- function(input, output, session) {
         } else {
             window.size <- NA
         }
-        
-        # Quitar la unidad de centro no sanitario porque no aporta nada
-        capacidad <- subset(capacidad, unidad!='Centros no sanitarios')
         
         # Hospitales
         hospitales <- sort(unique(capacidad$hospital))
@@ -910,7 +909,19 @@ server <- function(input, output, session) {
     })
     
     analisis.capacidad.conjunto <- reactive({
-        plots <- plot.merged.capacity(capacidad.filter(), c('ocupados.covid.pct','ocupados.nocovid.pct','ocupados.total.pct'), 'mean', c("COVID19", "No COVID19", "Total"))
+        outlier.filter.type <- input$outlier.filter.type
+        
+        # Este if es para que no recargue la gráfica si cambia el window.size
+        # pero no afecta al método de filtrado de outlier
+        if (outlier.filter.type %in% c('sliding_mean','sliding_median')){
+            window.size <- input$window.size
+        } else {
+            window.size <- NA
+        }
+        
+        plots <- plot.merged.capacity(capacidad.filter(), 
+                                      c('ocupados.covid.pct','ocupados.nocovid.pct','ocupados.total.pct'), 
+                                      'mean', c("COVID19", "No COVID19", "Total"), outlier.filter.type, window.size)
         
         plot.title <- "<b>Porcentaje de camas ocupadas por unidad en el conjunto seleccionado</b>"
         { # Anotaciones para gráficas (posición de títulos y textos)
