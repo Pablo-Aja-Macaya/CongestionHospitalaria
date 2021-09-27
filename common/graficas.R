@@ -16,7 +16,7 @@ label <- list(
 
 plot.interactive.hist <- function(datos, title='Histograma del total de camas', labs=c('Cantidad','Frecuencia')){
   # Histograma
-  p <- plot_ly(datos, x = ~total_camas, type = "histogram", name='Frecuencia de camas', nbinsx=20)
+  p <- plot_ly(datos, x = ~total_camas, type = "histogram", name='Frecuencia de camas', nbinsx=20) %>% layout(bargap=0.1)
   return(ggplotly(p))
 }
 
@@ -50,7 +50,7 @@ plot.interactive.percent.patients <- function(datos, u, title='', labs=c('Fecha 
     add_trace(y=~ocupados.nocovid.pct, name='No COVID19', color="dodgerblue3") %>%
     add_trace(y=~ocupados.total.pct, name='Total', color="darkgreen") %>% 
     layout(legend = list(orientation = 'h', xanchor = "center", x = 0.5), 
-           yaxis=list(range=c(-10,100), title='Ocupadas (%)'))
+           yaxis=list(range=c(-10,100), title='Ocupadas (%)', hoverformat = ".2f%"))
   
   # # ---- Dependiendo de la unidad el porcentaje de ocupación es más o menos preocupante ----
   # # https://www.mscbs.gob.es/profesionales/saludPublica/ccayes/alertasActual/nCov/documentos/Actuaciones_respuesta_COVID_26.03.2021.pdf

@@ -427,6 +427,8 @@ ui <- fluidPage(
                            # ---- Outliers ----
                            bsCollapsePanel(
                                h4(strong(translator$t("Outliers"))),
+                               h4(strong(translator$t("Outliers")), circleButton("helpbox_outliers_button",icon("question"),size='xs')),
+                               uiOutput("helpbox_outliers"),
                                selectInput("outlier.filter.type",
                                            strong(translator$t("Outlier removal")),
                                            choices = list('Sliding window median'='sliding_median'),
@@ -500,17 +502,17 @@ ui <- fluidPage(
                                  hr(),br(),br()
                         ),
                         tabPanel(translator$t("Tables"),
-                                 h3(strong(translator$t("Capacity table")), downloadButton('download.capacidades', label = "Download")),
+                                 h3(strong(translator$t("Capacity table")), downloadButton('download.capacidades', label = translator$t("Download"))),
                                  dataTableOutput("table.capacidades"),
                                  br(),
                                  hr(),
                                  br(),
-                                 h3(strong(translator$t("Cases table")), downloadButton('download.casos', label = "Download")),
+                                 h3(strong(translator$t("Cases table")), downloadButton('download.casos', label = translator$t("Download"))),
                                  dataTableOutput("table.casos"),
                                  br(),
                                  hr(),
                                  br(),
-                                 h3(strong(translator$t("Hospitalized table")), downloadButton('download.hospitalizados', label = "Download")),
+                                 h3(strong(translator$t("Hospitalized table")), downloadButton('download.hospitalizados', label = translator$t("Download"))),
                                  dataTableOutput("table.hospitalizados"),
                                  br(),
                                  br(),
@@ -605,12 +607,18 @@ server <- function(input, output, session) {
     })
     output$helpbox_analisis_capacidad = renderUI({
         if (input$helpbox_analisis_capacidad_button %% 2){
-            helpText(translator$t("The analysis indicates, for each hospital and unit (ICU, conventional), its capacity (black), the number of occupied beds (COVID, red or non Covid, blue), the area where the avaliable beds  orbit (purple) and the days where a limit was achieved (red columns)."))
+            helpText(translator$t("The analysis indicates, for each hospital and unit (ICU, conventional), its capacity (histogram) and the percentage of occupied beds (COVID, blue or non Covid, orange)."))
         } else {
             return()
         }
     })
-    
+    output$helpbox_outliers = renderUI({
+        if (input$helpbox_outliers_button %% 2){
+            helpText(translator$t("Outliers can be removed in various ways. The methods with sliding windows alter every data point, while boxplot methods only eliminate outliers. However, due to the nature of the data, where there are outbreaks that can be considered outliers, sliding window methods adapt better to these conditions."))
+        } else {
+            return()
+        }
+    })
     ##############################################################
     # ---- Casos y hospitalizados ----
     casos.filter <- reactive({
@@ -706,6 +714,10 @@ server <- function(input, output, session) {
         capacidad <- filter.ref(capacidad, input$hosp.ref)
         # Quitar la unidad de centro no sanitario porque no aporta nada
         capacidad <- subset(capacidad, unidad!='Centros no sanitarios')
+        # Traducir centros
+        capacidad$unidad[capacidad$unidad == 'U. Críticas CON respirador'] <- translator$t("ICU with respirator")
+        capacidad$unidad[capacidad$unidad == 'U. Críticas SIN respirador'] <- translator$t("ICU without respirator")
+        capacidad$unidad[capacidad$unidad == 'Hospitalización convencional'] <- translator$t("Conventional hospitalization")
         capacidad
     }) %>% debounce(1500) # el debounce retrasa el proceso por si se eligen más de una zona (si no, se manda varias veces y retrasa mucho todo)
     analisis.capacidad <- observe({
@@ -713,7 +725,7 @@ server <- function(input, output, session) {
         outlier.filter.type <- input$outlier.filter.type
         
         # Este if es para que no recargue la gráfica si cambia el window.size
-        # pero no afecta al método de filtrado de outlier
+        # y el parámetro no afecta al método de filtrado de outlier
         if (outlier.filter.type %in% c('sliding_mean','sliding_median')){
             window.size <- input$window.size
         } else {
@@ -823,7 +835,7 @@ server <- function(input, output, session) {
                         list(
                             x = 0.23,
                             y = 1.0,
-                            text = "Con outliers",
+                            text = translator$t("With outliers"),
                             xref = "paper",
                             yref = "paper",
                             xanchor = "center",
@@ -833,7 +845,7 @@ server <- function(input, output, session) {
                         list(
                             x = 0.77,
                             y = 1,
-                            text = "Datos tratados",
+                            text = translator$t("Treated data"),
                             xref = "paper",
                             yref = "paper",
                             xanchor = "center",
@@ -923,7 +935,11 @@ server <- function(input, output, session) {
                                       c('ocupados.covid.pct','ocupados.nocovid.pct','ocupados.total.pct'), 
                                       'mean', c("COVID19", "No COVID19", "Total"), outlier.filter.type, window.size)
         
-        plot.title <- "<b>Porcentaje de camas ocupadas por unidad en el conjunto seleccionado</b>"
+        plot.title <- glue("<b>{translator$t('Occupied bed percentages in selected set')}</b>")
+        # Traducir centros
+        unidades[unidades == 'U. Críticas CON respirador'] <- translator$t("ICU with respirator")
+        unidades[unidades == 'U. Críticas SIN respirador'] <- translator$t("ICU without respirator")
+        unidades[unidades == 'Hospitalización convencional'] <- translator$t("Conventional hospitalization")
         { # Anotaciones para gráficas (posición de títulos y textos)
             annotations = list(
                 list(
@@ -1509,7 +1525,7 @@ server <- function(input, output, session) {
     
     dummy.plot <- function(){
         # Crea una gráfica placeholder con un texto en el medio
-        p <- ggplot() + annotate(geom = 'text', label = 'Pulsa el botón de "Ejecutar simulación"', x = 1, y = 1, hjust = 0, vjust = 1, col='darkgray') + 
+        p <- ggplot() + annotate(geom = 'text', label = translator$t('Press the "Execute simulation" button'), x = 1, y = 1, hjust = 0, vjust = 1, col='darkgray') + 
             theme_void()
         ggplotly(p)
     }

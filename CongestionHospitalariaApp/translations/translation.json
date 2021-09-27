@@ -7,6 +7,10 @@
       {"en": "Hospital congestion", "es": "Congestión hospitalaria"},
       {"en": "Change language", "es": "Cambiar idioma"},
       
+      {"en": "ICU with respirator", "es": "U. Críticas CON respirador"},
+      {"en": "ICU without respirator", "es": "U. Críticas SIN respirador"},
+      {"en": "Conventional hospitalization", "es": "Hospitalización convencional"},
+      
       {"en": "Capacities", "es": "Capacidades"},
       {"en": "Simulation", "es": "Simulación"},
       {"en": "Cases", "es": "Casos"},
@@ -14,8 +18,8 @@
 
       {"en": "Individual capacity analysis", "es": "Análisis de capacidad individual"},
       {
-        "en": "The analysis indicates, for each hospital and unit (ICU, conventional), its capacity (black), the number of occupied beds (COVID, red or non Covid, blue), the area where the avaliable beds  orbit (purple) and the days where a limit was achieved (red columns).", 
-        "es": "El análisis indica, para cada hospital y unidad (UCI, convencional...), la capacidad de esta (negro), el número de camas ocupadas (COVID, rojo o no COVID, azul), el área donde se mueve la cantidad de camas disponibles (morado) y los días en los que se superaron algún límite (columnas rojas)."
+        "en": "The analysis indicates, for each hospital and unit (ICU, conventional), its capacity (histogram) and the percentage of occupied beds (COVID, blue or non Covid, orange).", 
+        "es": "El análisis indica, para cada hospital y unidad (UCI, convencional...), la capacidad de esta (histograma) y el número de camas ocupadas (COVID, azul o no COVID, naranja)."
       },
       
       {"en": "Merged capacity analysis", "es": "Análisis de capacidad en conjunto"},
@@ -24,6 +28,7 @@
       {"en": "Capacity table", "es": "Tabla de capacidades"},
       {"en": "Cases table", "es": "Tabla de casos"},
       {"en": "Hospitalized table", "es": "Tabla de hospitalizados"},
+      {"en": "Download", "es": "Descargar"},
       
       {"en": "Common variables", "es": "Variables comunes"},
       {"en": "Sanitary area", "es": "Área sanitaria"},
@@ -46,6 +51,12 @@
       {"en": "Sliding window average", "es": "Desplazamiento de ventana con media"},
       {"en": "None", "es": "Ninguno"},
       {"en": "Window size", "es": "Tamaño de ventana"},
+      {"en": "With outliers", "es": "Con outliers"},
+      {"en": "Treated data", "es": "Datos tratados"},
+            {
+        "en": "Outliers can be removed in various ways. The methods with sliding windows alter every data point, while boxplot methods only eliminate outliers. However, due to the nature of the data, where there are outbreaks that can be considered outliers, sliding window methods adapt better to these conditions.", 
+        "es": "Los valores atípicos se pueden tratar de diversas maneras. Los métodos con desplazamiento de ventana alteran todos los puntos, mientras que los métodos por boxplots únicamente eliminan los datos atípicos. No obstante, debido a la naturaleza de los datos, donde algunos brotes pueden ser considerados atípicos, los desplazamientos de ventana se adaptan mejor a tales condiciones."
+      },
       
       {"en": "Simulation variables", "es": "Variables de simulación"},
       {
@@ -61,6 +72,7 @@
       {"en": "Deviation from infection day", "es": "Desviación del día"},
       
       {"en": "Execute simulation", "es": "Ejecutar simulación"},
+      {"en": "Press the \"Execute simulation\" button", "es": "Presiona el botón de \"Ejecutar simulación\""},
       
       {"en": "Probabilities", "es": "Probabilidades"},
       {
@@ -91,12 +103,8 @@
       {"en": "Occupied by COVID-19", "es": "Ocupadas por COVID-19"},
       {"en": "Occupied with other causes", "es": "Ocupadas por otras causas"},
       {"en": "Total beds histogram", "es": "Histograma del total de camas"},
+      {"en": "Occupied bed percentages in selected set", "es": "Porcentaje de ocupación en conjunto seleccionado"}
       
-
-      {"en": "Non sanitary centers", "es": "Centros no sanitarios"},
-      {"en": "Conventional hospitalization", "es": "Hospitalización convencional"},
-      {"en": "ICU (respirator)", "es": "U. Críticas CON respirador"},
-      {"en": "ICU (no respirator)", "es": "U. Críticas SIN respirador"}
       
       
 
