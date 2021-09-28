@@ -11,7 +11,7 @@ library(shinythemes)
 library(shinyWidgets)
 library(shiny.i18n)
 library(shinyBS)
-
+library(markdown)
 # Simulación
 library(Rlab)
 library(data.table)
@@ -30,6 +30,8 @@ casos.org <- data.frame(read_csv("../datos/sivies_agreg_area_sanitaria.csv")) # 
 capacidad.org <- data.frame(read_csv("../datos/capacidadasistencial.csv", locale = locale(encoding = "ISO-8859-1"))) # capacidad asistencial
 names(capacidad.org) <- tolower(names(capacidad.org))
 
+# Tablas buenas
+source('../common/create_table.R')
 
 #########################
 # ------- Casos ------- #
@@ -104,78 +106,9 @@ filter.ref <- function(df, ref){
 }
 
 
-# ---- Examen de días por encima del límite ----
-check.hosp.capacity <- function(hosp, icu, neto, t, cap.stats, time){
-    par(mfrow=c(1,1))
-    # ---- Ver si en algún momento se superó el número de camas ---- #
-    cap.convencional <- cap.stats['mediana','Hospitalización convencional']
-    cap.uci <- sum(cap.stats['mediana',c('U. Críticas CON respirador', 'U. Críticas SIN respirador')])
-    
-    # Número de días que se sobrepasa
-    sim.tot.hosp <- hosp+icu
-    dias.sobrepasados.convencional <- sum(sim.tot.hosp>=cap.convencional)
-    dias.sobrepasados.uci <- sum(icu>=cap.uci)
-    
-    # Gráficas
-    plot(NA, xlim=c(0,time), ylim=c(0,max(max(sim.tot.hosp)+20)), xlab="Días", ylab="Casos", main=t)
-    
-    add.range <- function(cap.stats, unidad, col){
-        mediana <- cap.stats['mediana',unidad]
-        p10 <- cap.stats['percentil10',unidad]
-        p90 <- cap.stats['percentil90',unidad]
-        abline(h=p10, col='black', lty=2)
-        abline(h=p90, col='black', lty=2)
-        abline(h=mediana, col='red', lty=1)
-        rect(0-50,p90,
-             time+50,p10,
-             col= col, lwd=0)
-    }
-    add.range(cap.stats,'Hospitalización convencional',rgb(0,1,0,alpha=0.1))
-    add.range(cap.stats,'U. Críticas CON respirador',rgb(0,0,1,alpha=0.1))
-    add.range(cap.stats,'U. Críticas SIN respirador',rgb(1,0,0,alpha=0.1))
-    
-    lines(hosp, type="l",lty=1, lwd=2, col='pink')
-    lines(icu, type="l",lty=1, lwd=2, col='red')
-    lines(sim.tot.hosp, type="l",lty=1, lwd=2, col='orange')
-    lines(neto,lty=1, lwd=2, col='green')
-    
-    legend("topright", legend = c("nHOS", "nICU",'nHOS+nICU','Cambio neto (in-out)'),
-           col = c('pink','red','orange','green'), lty=c(1,1,1,1,2), pch = c(NA,NA,NA,NA), bty = "n")
-
-    title(sub=paste('Días sobrepasados en HOSP: ', dias.sobrepasados.convencional), adj=1, line=2, font=2,cex.sub = 0.75)
-    title(sub=paste('Días sobrepasados en UCI: ', dias.sobrepasados.uci), adj=1, line=3, font=2,cex.sub = 0.75)
-    
-}
-
-check.hosp.capacity.interactive <- function(hosp, icu, neto, tipo, cap.stats, time){
-    datos <- data.frame(days=1:time, hos=hosp, icu=icu, cambio.neto=neto)
-    
-    p <- ggplot(data=datos,aes(x=days,y=hos)) + geom_line(color="#E69F00") +
-        geom_line(aes(x=days, y=icu), color="#56B4E9") + 
-        geom_line(aes(x=days, y=cambio.neto), color="#009E73") +
-        geom_line(aes(x=days, y=icu+hos), color="#111111") + 
-        ggtitle(tipo) + labs(y="Hospitalizados", x = "Días") +
-        theme_minimal() + theme(plot.title = element_text(hjust = 0.5)) 
-
-    
-    font <- list(
-        family = "Roboto Condensed",
-        size = 10,
-        color = "white"
-    )
-    label <- list(
-        bgcolor = "#232F34",
-        bordercolor = "transparent",
-        font = font
-    )
-    
-    ggplotly(p, tooltip="y") %>% 
-        style(hoverlabel = label) %>%
-        layout(hovermode = "x unified")
-}
-
-
+# ---- Gráficas ----
 source('../common/graficas.R')
+
 # ---- Función de filtrado de outliers ----
 filter.outliers <- function(df, filter.type, sel.col, h, u, window.size=NA){
     outliers <- c() # inicializar outliers (shiny protesta si no se hace)
@@ -262,7 +195,8 @@ languages.flags$img <- c(
     sprintf("<img src='spain.svg' width=20px><div class='jhr'>%s</div></img>", languages.flags$val[1]),
     sprintf("<img src='united-kingdom.svg' width=20px><div class='jhr'>%s</div></img>", languages.flags$val[2])
 )
-library(markdown)
+
+
 ui <- fluidPage(
     # theme = shinytheme("lumen"),
     shinyjs::useShinyjs(),
@@ -310,7 +244,7 @@ ui <- fluidPage(
                                           style="color: #fff; background-color: #008080; border-color: #2e6da4;"), align='center'), 
                    column(4, pickerInput('selected_language',
                                          NULL,
-                                         choices = list('Español'='es','English'='en'),
+                                         choices = languages,
                                          choicesOpt = list(content=languages.flags$img)), align='center')
                ),
 
@@ -342,7 +276,7 @@ ui <- fluidPage(
                            # ---- Variables de simulación ----
                            bsCollapsePanel(
                                h4(strong(translator$t("Simulation variables"))), 
-                               h4(strong('Info'), circleButton("helpbox_simulacion_button",icon("question"),size='xs')), 
+                               h4(strong(translator$t("Simulation variables")), circleButton("helpbox_simulacion_button",icon("question"),size='xs')), 
                                uiOutput("helpbox_simulacion"),
                                fluidRow(
                                    column(12,
@@ -382,7 +316,7 @@ ui <- fluidPage(
                            # ---- Probabilidades ----
                            bsCollapsePanel(
                                h4(strong(translator$t("Probabilities"))),
-                               h4(strong('Info'), circleButton("helpbox_probabilidades_button",icon("question"),size='xs')),
+                               h4(strong(translator$t("Probabilities")), circleButton("helpbox_probabilidades_button",icon("question"),size='xs')),
                                uiOutput("helpbox_probabilidades"),
                                h5(strong(translator$t("Initial probabilities"))),
                                fluidRow(
@@ -498,22 +432,26 @@ ui <- fluidPage(
                         ),
                         tabPanel(translator$t("Merged capacity analysis"),
                                  h3(strong(translator$t("Merged capacity analysis"))),
-                                 plotlyOutput('analisis.capacidad.conjunto') %>% withSpinner(),
-                                 hr(),br(),br()
+                                 br(),
+                                 # dataTableOutput("table.percentiles"),
+                                 # br(),hr(),br(),
+                                 plotlyOutput('analisis.capacidad.conjunto') %>% withSpinner()
+                                 
+                                 
                         ),
                         tabPanel(translator$t("Tables"),
                                  h3(strong(translator$t("Capacity table")), downloadButton('download.capacidades', label = translator$t("Download"))),
-                                 dataTableOutput("table.capacidades"),
+                                 dataTableOutput("table.capacidades") %>% withSpinner(),
                                  br(),
                                  hr(),
                                  br(),
                                  h3(strong(translator$t("Cases table")), downloadButton('download.casos', label = translator$t("Download"))),
-                                 dataTableOutput("table.casos"),
+                                 dataTableOutput("table.casos") %>% withSpinner(),
                                  br(),
                                  hr(),
                                  br(),
                                  h3(strong(translator$t("Hospitalized table")), downloadButton('download.hospitalizados', label = translator$t("Download"))),
-                                 dataTableOutput("table.hospitalizados"),
+                                 dataTableOutput("table.hospitalizados") %>% withSpinner(),
                                  br(),
                                  br(),
                                  br()
@@ -931,9 +869,13 @@ server <- function(input, output, session) {
             window.size <- NA
         }
         
-        plots <- plot.merged.capacity(capacidad.filter(), 
+        res <- plot.merged.capacity(capacidad.filter(), 
                                       c('ocupados.covid.pct','ocupados.nocovid.pct','ocupados.total.pct'), 
                                       'mean', c("COVID19", "No COVID19", "Total"), outlier.filter.type, window.size)
+        plots <- res$plots
+        
+        output$table.percentiles <- renderDataTable(create_table(res$percentiles, 'Percentiles'))
+        capacidades$percentiles <- res$percentiles
         
         plot.title <- glue("<b>{translator$t('Occupied bed percentages in selected set')}</b>")
         # Traducir centros
@@ -1533,9 +1475,10 @@ server <- function(input, output, session) {
     plot.condicional.res <- reactive({
         if(length(resultados$nHOS>=1)){
             n.time <- input$n.time # días (follow-up time)
+            percentiles <- capacidades$percentiles
             check.hosp.capacity.interactive(resultados$nHOS, resultados$nICU,
-                                            resultados$cambio.neto.cond, 'Condicional',
-                                            capacidades$area.capacity.stats, n.time)
+                                            resultados$cambio.neto.cond, translator$t('Conditional'),
+                                            capacidades$area.capacity.stats, n.time, percentiles)
         } else {
             dummy.plot()
         }
@@ -1544,9 +1487,10 @@ server <- function(input, output, session) {
     plot.incondicional.res <- reactive({
         if(length(resultados$nHOS.inc>=1)){
             n.time <- input$n.time # días (follow-up time)
+            percentiles <- capacidades$percentiles
             check.hosp.capacity.interactive(resultados$nHOS.inc, resultados$nICU.inc,
-                                            resultados$cambio.neto.inc, 'Incondicional',
-                                            capacidades$area.capacity.stats, n.time)
+                                            resultados$cambio.neto.inc, translator$t('Unconditional'),
+                                            capacidades$area.capacity.stats, n.time, percentiles)
         } else {
             dummy.plot()
         }
@@ -1562,9 +1506,9 @@ server <- function(input, output, session) {
 
     ##############################################################
     # ---- Outputs ----
-    output$table.capacidades <- renderDataTable(capacidad.filter(), options = list(scrollX = TRUE, pageLength = 5))
-    output$table.casos <- renderDataTable(casos.filter(), options = list(scrollX = TRUE, pageLength = 5))
-    output$table.hospitalizados <- renderDataTable(get.hospitalizados(), options = list(scrollX = TRUE, pageLength = 5))
+    output$table.capacidades <- renderDataTable(create_table(capacidad.filter(), 'Capacidades'))
+    output$table.casos <- renderDataTable(create_table(casos.filter(), 'Casos'))
+    output$table.hospitalizados <- renderDataTable(create_table(get.hospitalizados(), 'Hospitalizados'))
     
     output$prob.rc.real <- renderText(proporciones$prob.rc.real)
     output$prob.w <- renderText(proporciones$prob.w)

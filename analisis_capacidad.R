@@ -257,7 +257,8 @@ for (h in hospitales){
 }
 
 # ---- Resultados en conjunto ----
-plots <- plot.merged.capacity(capacidad, c('ocupados.covid.pct','ocupados.nocovid.pct','ocupados.total.pct'), 'mean', c("COVID19", "No COVID19", "Total"), outlier.filter.type, window.size)
+res <- plot.merged.capacity(capacidad, c('ocupados.covid.pct','ocupados.nocovid.pct','ocupados.total.pct'), 'mean', c("COVID19", "No COVID19", "Total"), outlier.filter.type, window.size)
+plots <- res$plots
 
 plot.title <- "<b>Porcentaje de camas ocupadas por unidad en el conjunto seleccionado</b>"
 { # Anotaciones para gráficas (posición de títulos y textos)

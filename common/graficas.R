@@ -139,6 +139,7 @@ plot.merged.capacity <- function(cap, sel.cols = c('ocupados.covid.pct'), sel.st
   unidades.stat.list <- get.unidades.list(cap, sel.cols)
   
   plot.list <- list()
+  percentil.list <- list()
   for(u in names(unidades.stat.list)){
     df.list <- list()
     for(c in sel.cols){
@@ -155,14 +156,16 @@ plot.merged.capacity <- function(cap, sel.cols = c('ocupados.covid.pct'), sel.st
       df.list[[c]] <- data.frame(fecha_envio=reduced.unit[['fecha_envio']], sel.stat)
       
     }
+    # Calcular percentiles de capacidad de la unidad
     tmp <- reduce.unidades.stat.list(unidades.stat.list[[u]], 'total_camas')
     percentiles <- get.sel.stat.function(tmp, 'quantile')
     
     per.min <- percentiles[['10%']]
     per.max <- percentiles[['90%']]
     mediana <- percentiles[['50%']]
+    percentil.list[[u]] <- data.frame(unidad=u, p10=per.min, p90=per.max, mediana=mediana)
     
-    cat(u, ':', per.min, per.max, mediana, '\n')
+    # cat(u, ':', per.min, per.max, mediana, '\n')
     
     # En df.list habrá una lista de dataframes, los cuales reducimos de nuevo según la fecha_envio
     res.df <- reduce.unidades.stat.list(df.list, 'sel.stat')
@@ -179,11 +182,52 @@ plot.merged.capacity <- function(cap, sel.cols = c('ocupados.covid.pct'), sel.st
                         add_trace(y=~sel.stat.y, name=names[2], color="dodgerblue3") %>%
                         add_trace(y=~sel.stat, name=names[3], color="green") %>%
                         layout(title = glue("{u}\n {sel.cols}"),
-                               yaxis = list(range=c(-10,100), title='Ocupadas (%)', hoverformat = ".2f%"))
+                               yaxis = list(range=c(-10,100), title='Ocupadas (%)', hoverformat = ".2f%"),
+                               xaxis = list(title = '')
+                              )
                       )
     
     plot.list[[u]] <- p
     
   }
-  return(plot.list)
+  
+  # Dataframe con el nombre de unidad, p10, p90 y mediana
+  percentiles <- bind_rows(percentil.list)
+  percentiles$color <- c('darkgreen','red','purple')
+  
+  return(list(plots=plot.list, percentiles=percentiles))
 }
+
+################################################################################
+
+
+check.hosp.capacity.interactive <- function(hosp, icu, neto, tipo, cap.stats, time, percentiles){
+  datos <- data.frame(days=1:time, hos=hosp, icu=icu, cambio.neto=neto)
+
+  # percentiles <- data.frame(
+  #   unidad=c("Hospitalización convencional","U. Críticas CON respirador","U. Críticas SIN respirador"),
+  #   p10=c(100,50,4),
+  #   p90=c(1387,128,16),
+  #   mediana=c(1353,94,16),
+  #   color=c('darkgreen','red','purple')
+  # )
+  
+  rect.areas <- apply(percentiles, 1, function(l){
+    list(type = "rect",
+         fillcolor = 'white', line = list(color = l[['color']]), opacity = 0.2, layer='below',
+         x0 = 0-10, x1 = time+10, xref = "x",
+         y0 = as.numeric(l[['p10']]), y1 = as.numeric(l[['p90']]), yref = "y")
+  })
+  
+  p <- plot_ly(datos, x=~days, y=~hos, type='scatter', mode='lines', name='Hosp', color="firebrick4") %>%
+    add_trace(y=~icu, name='ICU', color="dodgerblue3") %>%
+    add_trace(y=~cambio.neto, name='Neto', color="darkgreen") %>%
+    layout(legend = list(orientation = 'h', xanchor = "center", x = 0.5),
+           yaxis=list(autorange = FALSE, range=c(0,max(neto)+10), title='Ocupadas', hoverformat = ".2f%"),
+           xaxis=list(autorange = FALSE, range=c(0,time)), 
+           hovermode = "x unified",
+           shapes = rect.areas)
+  
+  p <- plotly_build(p)
+}
+
