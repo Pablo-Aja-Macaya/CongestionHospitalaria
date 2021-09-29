@@ -3,7 +3,11 @@
 ## Introducción
 Este repositorio contiene la adaptación del modelo de simulación estadística creado por REFERENCIA a datos reales. El objetivo es simular la evolución epidemiológica de un número de individuos a lo largo de varios días. El modelo compartimenta a cada individuo en varias posibles etapas, que se ven en la siguiente imagen:
 
-![image](https://drive.google.com/uc?export=view&id=1WJgkYuF3glt7ONa0ggvaAoaHsG5ZP7q5)
+
+<p align="center">
+  <img src="https://drive.google.com/uc?export=view&id=1NyPX1Wor_gkohnYgfAwGNyIhjffLvC4j" width="600" title="Estados">
+</p>
+
 
 Cada individuo va cambiando de estado a lo largo de la simulación según unas probabilidades calculadas a partir de datos reales.
 
@@ -13,7 +17,10 @@ El sistema se puede ejecutar por scripts ([sim_datos_agregados.R](sim_datos_agre
 ## Aplicación
 Para ejecutar la aplicación, la cual permite usar los scripts de una manera muy intuitiva e interactiva, se ejecuta desde la base del repositorio el script [CongestionHospitalariaApp/app.R](CongestionHospitalariaApp/app.R).
 
-![image](https://drive.google.com/uc?export=view&id=1WIw9ZGIrW4iH29DbJBnAH0nLAalBiHPo)
+<p align="center">
+  <img src="https://drive.google.com/uc?export=view&id=1i3hFo8GU8AdbuOypLisReAChNxvKhLEu" width="700" title="App">
+</p>
+
 
 ### Traducciones en aplicación
 Se puede elegir el idioma en el que aparece la aplicación. Esto funciona gracias a un diccionario situado en [CongestionHospitalariaApp/translations/translation.json](CongestionHospitalariaApp/translations/translation.json), donde se especifica la traducción de cada línea desde el idioma principal (English o "en") al resto. La aplicación usa el paquete `shiny.i18n`, y la sintaxis es:
