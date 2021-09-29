@@ -73,6 +73,8 @@
       
       {"en": "Execute simulation", "es": "Ejecutar simulación"},
       {"en": "Press the \"Execute simulation\" button", "es": "Presiona el botón de \"Ejecutar simulación\""},
+      {"en": "Unconditional", "es": "Incondicional"},
+      {"en": "Conditional", "es": "Condicional"},
       
       {"en": "Probabilities", "es": "Probabilidades"},
       {

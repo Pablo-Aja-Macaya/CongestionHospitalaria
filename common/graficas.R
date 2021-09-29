@@ -223,6 +223,7 @@ check.hosp.capacity.interactive <- function(hosp, icu, neto, tipo, cap.stats, ti
     add_trace(y=~icu, name='ICU', color="dodgerblue3") %>%
     add_trace(y=~cambio.neto, name='Neto', color="darkgreen") %>%
     layout(legend = list(orientation = 'h', xanchor = "center", x = 0.5),
+           title= list(text = tipo),
            yaxis=list(autorange = FALSE, range=c(0,max(neto)+10), title='Ocupadas', hoverformat = ".2f%"),
            xaxis=list(autorange = FALSE, range=c(0,time)), 
            hovermode = "x unified",
