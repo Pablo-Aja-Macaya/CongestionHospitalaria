@@ -1,7 +1,7 @@
 # Simulación de la congestión hospitalaria en Galicia
 
 ## Introducción
-Este repositorio contiene la adaptación del modelo de simulación estadística creado por REFERENCIA a datos reales. El objetivo es simular la evolución epidemiológica de un número de individuos a lo largo de varios días. El modelo compartimenta a cada individuo en varias posibles etapas, que se ven en la siguiente imagen:
+Este repositorio contiene la adaptación del modelo de simulación estadística creado por [Ana López‐Cheda et al. (2021)](https://doi.org/10.1017/S0950268821000959) a datos reales de capacidad asistencial, junto con una aplicación y la paralelización del modelo. El objetivo es simular la evolución epidemiológica de un número de individuos a lo largo de varios días. El modelo compartimenta a cada individuo en varias posibles etapas, que se ven en la siguiente imagen:
 
 
 <p align="center">
@@ -15,6 +15,8 @@ El sistema se puede ejecutar por scripts ([sim_datos_agregados.R](sim_datos_agre
 
 
 ## Aplicación
+
+### Uso de app
 Para ejecutar la aplicación, la cual permite usar los scripts de una manera muy intuitiva e interactiva, se ejecuta desde la base del repositorio el script [CongestionHospitalariaApp/app.R](CongestionHospitalariaApp/app.R).
 
 <p align="center">
