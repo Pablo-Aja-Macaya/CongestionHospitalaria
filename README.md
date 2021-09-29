@@ -29,7 +29,23 @@ El sistema también se puede ejecutar paso a paso en los scripts, primero [sim_d
 
 #### Paso 1: [sim_datos_agregados.R](sim_datos_agregados.R)
 
-#### Paso 1: [sim_datos_agregados.R](sim_datos_agregados.R)
+#### Paso 2: [analisis_capacidad.R](analisis_capacidad.R)
+
+## Creación de informe
+Así mismo, se puede crear un informe a partir de [Informe_Congestion.Rmd](Informe_Congestion.Rmd). Para su uso apropiado, es necessario tener en cuenta cómo está formado. El archivo llama a otros scripts con la siguiente sintaxis:
+
+```
+{r, include=FALSE, cache=FALSE}
+knitr::read_chunk('sim_datos_agregados.R')
+```
+Esto lee los distintos apartados del script en cuestión, delimitados con `# ---- Apartado ----`. Después, ejecuta cada el apartado indicado por el script con esta sintaxis:
+
+```
+{r, Apartado, echo=TRUE}
+```
+
+Esto reduce la duplicación de código y permite compartimentalizarlo mejor. No obstante, si el nombre de un apartado cambia es necesario cambiarlo también en el Informe.Rrmd. Además, si el apartado se corta con otro apartado en medio, dará errores.
+
 
 ## Datos y carpetas
 Este es el árbol de carpetas necesario para que todo funcione bien (se pone para que se vean los archivos de datos necesarios):
