@@ -1,5 +1,11 @@
 # Simulación de la congestión hospitalaria en Galicia
 
+<span style="display: flex;">
+  <a href="https://citic.udc.es/"><img src="https://drive.google.com/uc?export=view&id=1BWYwTav1zfQIOHs72viSyEBnIGh_JlVj" width="100" title="CITIC"></a>
+</span>
+
+---
+
 > **AVISO**: Este código ha sido creado con Ubuntu 20.04 y codificación UTF-8. Si se abre con windows los caracteres raros como acentos y Ñs estarán mal representados. En ese caso, para verlo bien es necesario hacer lo siguiente: File > Reopen with encoding > UTF-8 > UTF-8 as default. 
 > 
 > Esto arregla el visualizado del código, pero aún así, algunas partes se ven afectadas por acentos en la ejecución (Ej: Los nombres de hospitales son el ID de elementos en varias listas) y puede dar error al ejecutar en Windows.
@@ -13,7 +19,7 @@ Este repositorio contiene la adaptación del modelo de simulación estadística 
 </p>
 
 
-Cada individuo va cambiando de estado a lo largo de la simulación según unas probabilidades calculadas a partir de datos reales.
+Cada individuo va cambiando de estado a lo largo de la simulación según unas probabilidades calculadas a partir de datos reales. Esto puede ser útil para estimar el número de camas necesario en caso de brotes grandes de COVID-19. El sistema permite visualizar esto por área sanitaria, conjunto de áreas sanitarias, hospitales y unidades. Además, puede ser adaptado a otras enfermedades con suficientes datos.
 
 El sistema se puede ejecutar por scripts ([sim_datos_agregados.R](sim_datos_agregados.R) y [analisis_capacidad.R](analisis_capacidad.R)), por informe ([Informe_Congestion.Rmd](Informe_Congestion.Rmd)) o mediante una aplicación Shiny ([CongestionHospitalariaApp/app.R](CongestionHospitalariaApp/app.R)).
 
