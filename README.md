@@ -96,7 +96,7 @@ Este es el árbol de carpetas necesario para que todo funcione bien (se pone par
 ├── Informe_Congestion.Rmd\
 ├── README.md\
 ├── sim_datos_agregados.R\
-└── weibull_parameters.R\
+└── weibull_parameters.R
 
 ### Explicación de ficheros
 
