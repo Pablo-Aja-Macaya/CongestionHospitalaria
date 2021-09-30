@@ -6,7 +6,7 @@
 
 ---
 
-> **AVISO**: Este código ha sido creado con Ubuntu 20.04 y codificación UTF-8. Si se abre con windows los caracteres raros como acentos y Ñs estarán mal representados. En ese caso, para verlo bien es necesario hacer lo siguiente: File > Reopen with encoding > UTF-8 > UTF-8 as default. 
+> **AVISO**: Este código ha sido creado con Ubuntu 20.04 y codificación UTF-8. Si se abre con Windows los caracteres raros como acentos y Ñs estarán mal representados. En ese caso, para verlo bien es necesario hacer lo siguiente: File > Reopen with encoding > UTF-8 > UTF-8 as default. 
 > 
 > Esto arregla el visualizado del código, pero aún así, algunas partes se ven afectadas por acentos en la ejecución (Ej: Los nombres de hospitales son el ID de elementos en varias listas) y puede dar error al ejecutar en Windows.
 
