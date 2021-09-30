@@ -38,14 +38,18 @@ translator$t("Outliers") # traducción
 La cadena insertada en `translator$t("Outliers")` debe ser una del diccionario y en la lengua principal, en este caso inglés. Si no existe en el diccionario saltará un warning cuando intente traducir pero no impide que funcione la app, usaría esa cadena por defecto.
 
 ## Directamente con scripts
-El sistema también se puede ejecutar paso a paso en los scripts, primero [sim_datos_agregados.R](sim_datos_agregados.R) y después [analisis_capacidad.R](analisis_capacidad.R).
+El sistema también se puede ejecutar paso a paso en los scripts, usando [sim_datos_agregados.R](sim_datos_agregados.R), el cual también llama a [analisis_capacidad.R](analisis_capacidad.R).
 
-#### Paso 1: [sim_datos_agregados.R](sim_datos_agregados.R)
+#### Simulación completa (incluye análisis de capacidad): [sim_datos_agregados.R](sim_datos_agregados.R)
 
-#### Paso 2: [analisis_capacidad.R](analisis_capacidad.R)
+Este script ejecuta todo el proceso: tratamiento de datos, análisis de capacidad, cálculos de probabilidades y simulaciones.
+
+#### Únicamente análisis de capacidad: [analisis_capacidad.R](analisis_capacidad.R)
+
+Este script sirve para visualizar los análisis de capacidad de cada hospital y del conjunto seleccionado, pero no ejecuta la simulación, únicamente el procesamiento de los datos de capacidad.
 
 ## Creación de informe
-Así mismo, se puede crear un informe a partir de [Informe_Congestion.Rmd](Informe_Congestion.Rmd). Para su uso apropiado, es necessario tener en cuenta cómo está formado. El archivo llama a otros scripts con la siguiente sintaxis:
+Así mismo, se puede crear un informe a partir de [Informe_Congestion.Rmd](Informe_Congestion.Rmd). Para su uso apropiado, es necesario tener en cuenta cómo está formado. El archivo llama a otros scripts con la siguiente sintaxis:
 
 ```
 {r, include=FALSE, cache=FALSE}
@@ -57,7 +61,7 @@ Esto lee los distintos apartados del script en cuestión, delimitados con `# ---
 {r, Apartado, echo=TRUE}
 ```
 
-Esto reduce la duplicación de código y permite compartimentalizarlo mejor. No obstante, si el nombre de un apartado cambia es necesario cambiarlo también en el Informe.Rrmd. Además, si el apartado se corta con otro apartado en medio, dará errores.
+Esto reduce la duplicación de código y permite compartimentalizarlo mejor. No obstante, si el nombre de un apartado cambia es necesario cambiarlo también en el `Informe.Rmd`. Además, si el apartado se corta con otro apartado en medio, dará errores.
 
 
 ## Datos y carpetas
