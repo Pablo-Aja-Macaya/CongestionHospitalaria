@@ -1,4 +1,22 @@
+#########################
+# sim_datos_agregados.R #
+#########################
+# Este script es el código principal del repositorio, e incluye el procesamiento
+# de datos de casos/hospitalizados, datos de capacidad (analisis_capacidad.R),
+# cálculo de probabilidades de transición, cálculo de variables Weibull,
+# las simulaciones paralelizadas y su visualizacióon
 
+# A tener en cuenta: la variable num.cores especifica los hilos usados en la simulación
+# Dependiendo del número de simulaciones un num.cores alto puede causar problemas de RAM
+# Ejemplo: Un ordenador con 8 hilos y 16 GB de RAM usará, como máximo, alrededor de 8-9 GB de RAM si:
+# - num.cores = 6
+# - m = 1000
+# - n.ind = 1000
+# - n.time = 250
+
+# Más información disponible en el GitHub del repositorio: https://github.com/Pablo-Aja-Macaya/CongestionHospitalaria
+
+# Librerías
 library(Rlab)
 library(data.table)
 library(scales)
