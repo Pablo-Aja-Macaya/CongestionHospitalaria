@@ -1,7 +1,14 @@
-#
-# This is a Shiny web application. You can run the application by clicking
-# the 'Run App' button above.
-#
+###########################################################
+# ---------------- Aplicación Shiny --------------------- #
+###########################################################
+
+# Desde RStudio, pulsa "Run app" arriba a la derecha o ejecuta el script entero. 
+# El working directory debe ser la base de CongestionHospitalaria/
+
+# Más información disponible en el GitHub del repositorio: https://github.com/Pablo-Aja-Macaya/CongestionHospitalaria
+
+###########################################################
+
 # Shiny
 library(shiny)
 library(shinyjs)

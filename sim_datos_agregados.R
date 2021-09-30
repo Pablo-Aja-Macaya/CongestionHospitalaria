@@ -1,6 +1,7 @@
-#########################
-# sim_datos_agregados.R #
-#########################
+###########################################################
+# Script principal: Simulación de congestión hospitalaria #
+###########################################################
+
 # Este script es el código principal del repositorio, e incluye el procesamiento
 # de datos de casos/hospitalizados, datos de capacidad (analisis_capacidad.R),
 # cálculo de probabilidades de transición, cálculo de variables Weibull,
@@ -15,6 +16,8 @@
 # - n.time = 250
 
 # Más información disponible en el GitHub del repositorio: https://github.com/Pablo-Aja-Macaya/CongestionHospitalaria
+
+###########################################################
 
 # Librerías
 library(Rlab)

@@ -1,12 +1,17 @@
-########################
-# analisis.capacidad.R #
-########################
+###########################################################
+# ---------------- Análisis capacidad ------------------- #
+###########################################################
+
 # Este script contiene el procesado y análisis de la capacidad asistencial de cada hospital en un conjunto seleccionado
 
 # A tener en cuenta: Es llamado por sim_datos_agregados.R, de tal manera que hay
 # ciertas variables en este script que deben comentarse si se usa sim_datos_agregados.R, como
 # area.sanitaria, hosp.ref, outlier.filter.type y window.size
 # Esto es un compromiso necesario para poder ejecutar analisis.capacidad.R por separado
+
+# Más información disponible en el GitHub del repositorio: https://github.com/Pablo-Aja-Macaya/CongestionHospitalaria
+
+###########################################################
 
 # Librerias
 library(Rlab)
