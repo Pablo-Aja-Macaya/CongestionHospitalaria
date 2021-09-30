@@ -1,5 +1,7 @@
 # Simulación de la congestión hospitalaria en Galicia
 
+> AVISO: Este código ha sido creado con Ubuntu 20.04 y codificación UTF-8. Si se abre con windows los caracteres raros como acentos y Ñs estarán mal representados. En ese caso, para verlo bien es necesario hacer lo siguiente: File > Reopen with encoding > UTF-8 > UTF-8 as default. Esto arregla el visualizado del código, pero aún así, algunas partes se ven afectadas por acentos en la ejecución (Ej: Los nombres de hospitales son el ID de elementos en varias listas) y puede dar error al ejecutar en Windows.
+
 ## Introducción
 Este repositorio contiene la adaptación del modelo de simulación estadística creado por [Ana López‐Cheda et al. (2021)](https://doi.org/10.1017/S0950268821000959) a datos reales de capacidad asistencial, junto con una aplicación y la paralelización del modelo. El objetivo es simular la evolución epidemiológica de un número de individuos a lo largo de varios días. El modelo compartimenta a cada individuo en varias posibles etapas, que se ven en la siguiente imagen:
 
@@ -59,6 +61,8 @@ Esto reduce la duplicación de código y permite compartimentalizarlo mejor. No 
 
 
 ## Datos y carpetas
+
+### Árbol de carpetas
 Este es el árbol de carpetas necesario para que todo funcione bien (se pone para que se vean los archivos de datos necesarios):
 
 ├── analisis_capacidad.R\
@@ -90,8 +94,18 @@ Este es el árbol de carpetas necesario para que todo funcione bien (se pone par
 ├── sim_datos_agregados.R\
 └── weibull_parameters.R\
 
+### Explicación de ficheros
 
-
+* `analisis_capacidad.R`: Incluye el código necesario para analizar la capacidad de cada hospital y del conjunto de hospitales mediante el uso de gráficas. La definición de las gráficas se encuentra en `common/graficas.R`.
+* `sim_datos_agregados.R`: Script principal en el que se sitúa la preparación de datos de casos/hospitalizados y las simulaciones.
+* `Informe_Congestion.Rmd`: Informe automático parametrizado para ejecutar todo el proceso en conjunto, obteniendo un informe en HTML interactivo.
+* `common/`: Incluye funciomnes comunes entre varias partes del repositorio, como pueden ser la definición de gráficas.
+* `CongestionHospitalariaApp/`: Aquí reside la aplicación de Shiny, siendo `app.R` el script principal. Además, incluye la carpeta `www/`, que almacena las imágenes e iconos de la aplicación (su nombre debe ser así) y `translations/`, que incluye un diccionario de traducciones entre idiomas para la aplicación.
+* `datos/`: Carpeta donde se almacenan los datos de capacidad, Weibull y casos/hospitalizaciones. Los archivos necesarios son:
+  * `areas_hospitales_correspondencia.csv` incluye la asociación entre áreas sanitarias y los concellos que pertenecen a estas. Se usa para asociar los datos de capacidad con los casos (SIVIES).
+  * `capacidadasistencial.csv` contiene el número de camas ocupadas y el total de camas por unidad/hospital (tanto por pacientes COVID como por pacientes normales) a lo largo de la pandemia.
+  * `full_weibull.Rdata` contiene objetos R con las distribuciones Weibull calculadas automáticamente, según grupo de edad y sexo, usando datos del principio de la pandemia.
+  * `sivies_agreg_area_sanitaria.csv` es resultado de una consulta agregada a la base de datos de SIVIES. En esta consulta se obtiene el número de casos/hospitalizados agregando por: área sanitaria, grupo de edad, sexo, comunidad, ingreso hospitalario, ingreso en UCI, en qué unidad ingresaron primero (UCI o hospital) y estado (si fueron hospitalizado o sólo fueron casos). Esto permite obtener el total de individuos, proporciones en UCI/hospital y proporción de muertos.
 
 
 
