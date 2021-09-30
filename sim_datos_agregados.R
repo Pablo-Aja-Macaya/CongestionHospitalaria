@@ -1,16 +1,4 @@
 
-# Notas:
-# V Gráfica que muestre el porcentaje de ocupación por día
-# V Implementar limpieza de datos de dos tipos:
-#   - Quitando outliers mediante boxplots
-#   - Quitando outliers mediante boxplots, conservando los que tengan un valor cercano al primer y tercer cuartil cuando estos son iguales
-#     Ej: todo 30s, dos 28s, dos 32s y un 300 --> El primer y tercer cuartil será 30, pero queremos conservar los 28s y 32s y quitar sólo el 300
-#   - Opción que no los filtre
-#   - Smoothear las gráficas con sliding window (https://stats.stackexchange.com/questions/3051/mean-of-a-sliding-window-in-r)
-# - Intentar comprobar a qué área sanitaria pertenece cada concello (igual un concello está dentro de una pero más cerca de otra, asegurarse)
-# - La gráfica de simulación poner las UCIs juntas porque la simulación no puede distinguir entre cada una. 
-#   Hay que calcular sus medianas y demás como si fuese un sólo grupo UCI
-
 library(Rlab)
 library(data.table)
 library(scales)
@@ -21,6 +9,7 @@ library(readr)
 library(dplyr)
 library(glue)
 library(zoo)
+library(plotly)
 
 # ---- Variables  ---- 
 

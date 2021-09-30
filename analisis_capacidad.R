@@ -9,7 +9,7 @@ library(readr)
 library(glue)
 library(dplyr)
 library(zoo)
-
+library(plotly)
 
 #  ---- Variables de datos ----
 area.sanitaria <- 'Vigo' # "Coruña - Cee" # c('Ourense - Verín - O Barco de Valdeorras', 'Coruña - Cee') # si se pone 'all' se eligen todas

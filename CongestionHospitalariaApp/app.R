@@ -23,6 +23,7 @@ library(readr)
 library(glue)
 library(dplyr)
 library(zoo)
+library(plotly)
 
 #  ---- Variables de datos ----
 areas.hospitales <- data.frame(read_csv("../datos/areas_hospitales_correspondencia.csv"))
