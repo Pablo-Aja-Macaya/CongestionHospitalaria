@@ -1,6 +1,8 @@
 # Simulación de la congestión hospitalaria en Galicia
 
-> AVISO: Este código ha sido creado con Ubuntu 20.04 y codificación UTF-8. Si se abre con windows los caracteres raros como acentos y Ñs estarán mal representados. En ese caso, para verlo bien es necesario hacer lo siguiente: File > Reopen with encoding > UTF-8 > UTF-8 as default. Esto arregla el visualizado del código, pero aún así, algunas partes se ven afectadas por acentos en la ejecución (Ej: Los nombres de hospitales son el ID de elementos en varias listas) y puede dar error al ejecutar en Windows.
+> **AVISO**: Este código ha sido creado con Ubuntu 20.04 y codificación UTF-8. Si se abre con windows los caracteres raros como acentos y Ñs estarán mal representados. En ese caso, para verlo bien es necesario hacer lo siguiente: File > Reopen with encoding > UTF-8 > UTF-8 as default. 
+> 
+> Esto arregla el visualizado del código, pero aún así, algunas partes se ven afectadas por acentos en la ejecución (Ej: Los nombres de hospitales son el ID de elementos en varias listas) y puede dar error al ejecutar en Windows.
 
 ## Introducción
 Este repositorio contiene la adaptación del modelo de simulación estadística creado por [Ana López‐Cheda et al. (2021)](https://doi.org/10.1017/S0950268821000959) a datos reales de capacidad asistencial, junto con una aplicación y la paralelización del modelo. El objetivo es simular la evolución epidemiológica de un número de individuos a lo largo de varios días. El modelo compartimenta a cada individuo en varias posibles etapas, que se ven en la siguiente imagen:
@@ -42,11 +44,21 @@ El sistema también se puede ejecutar paso a paso en los scripts, usando [sim_da
 
 #### Simulación completa (incluye análisis de capacidad): [sim_datos_agregados.R](sim_datos_agregados.R)
 
-Este script ejecuta todo el proceso: tratamiento de datos, análisis de capacidad, cálculos de probabilidades y simulaciones.
+Este script es el principal y ejecuta todo el proceso: tratamiento de datos, análisis de capacidad, cálculos de probabilidades y simulaciones.
+
+> **A tener en cuenta**: la variable num.cores especifica los hilos usados en la simulación. Dependiendo del número de simulaciones un num.cores alto puede causar problemas de RAM. Ejemplo: Un ordenador con 8 hilos y 16 GB de RAM usará, como máximo, alrededor de 8-9 GB de RAM si:
+> * `num.cores` = 6
+> * `m` = 1000
+> * `n.ind` = 1000
+> * `n.time` = 250
 
 #### Únicamente análisis de capacidad: [analisis_capacidad.R](analisis_capacidad.R)
 
 Este script sirve para visualizar los análisis de capacidad de cada hospital y del conjunto seleccionado, pero no ejecuta la simulación, únicamente el procesamiento de los datos de capacidad.
+
+> **A tener en cuenta**: Es llamado por `sim_datos_agregados.R`, de tal manera que hay ciertas variables en este script que deben comentarse si se usa `sim_datos_agregados.R`, como `area.sanitaria`, `hosp.ref`, `outlier.filter.type` y `window.size`. Si no se comentan, se sobreescribirán al ejecutar `analisis_capacidad.R`.  
+> 
+> Esto es un compromiso necesario para poder ejecutar `analisis.capacidad.R` por separado.
 
 ## Creación de informe
 Así mismo, se puede crear un informe a partir de [Informe_Congestion.Rmd](Informe_Congestion.Rmd). Para su uso apropiado, es necesario tener en cuenta cómo está formado. El archivo llama a otros scripts con la siguiente sintaxis:
