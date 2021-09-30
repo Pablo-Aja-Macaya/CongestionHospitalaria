@@ -1,5 +1,15 @@
-# ---- Parámetros Weibull ----
+###########################################################
+# ---------------- Parámetros Weibull ------------------- #
+###########################################################
 
+# Este script contiene el procesado de los datos no agregados de marzo 2020 para
+# calcular los parámetros Weibull (shape y scale) teniendo encuenta sexo y edad (condicional) o no
+
+# El resultado son dataframes de parámetros condicionales/incondicionales para cada transición de estado (Ej: UCI a hospital)
+
+# Más información disponible en el GitHub del repositorio: https://github.com/Pablo-Aja-Macaya/CongestionHospitalaria
+
+###########################################################
 
 # ---- Librerías y variables base ----
 library('EnvStats') # weibull_parameters
