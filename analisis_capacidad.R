@@ -36,14 +36,7 @@ capacidad <- data.frame(read_csv("datos/capacidadasistencial.csv", locale = loca
 names(capacidad) <- tolower(names(capacidad))
 
 # Para crear buenas tablas
-create.table <- function(df, capt){
-  DT::datatable(df, extensions = c('FixedColumns'),
-                options = list(scrollX = TRUE, paging=TRUE), 
-                caption=htmltools::tags$caption(
-                  style = 'caption-side: bottom; text-align: center; color: black;',
-                  htmltools::em(capt)
-                ))
-}
+source('./common/create_table.R')
 
 # Cargar funciones de gráficas
 source('./common/graficas.R')
@@ -82,7 +75,7 @@ filter.ref <- function(df, ref){
 }
 capacidad <- filter.ref(capacidad, hosp.ref)
 
-create.table(capacidad, 'Capacidades')
+create_table(capacidad, 'Capacidades')
 
 # ---- Función de filtrado de outliers ----
 filter.outliers <- function(df, filter.type, sel.col, h, u, window.size=NA){
@@ -339,7 +332,7 @@ df_p90 <- merge.hospital.data(hospital.capacity.stats, 'percentil90')
 
 # Se juntan en un df, resumiendo la capacidad del área seleccionada
 area.capacity.stats <- rbind(df_median, df_p10, df_p90)
-create.table(area.capacity.stats, capt='Capacidad del conjunto seleccionado')
+create_table(area.capacity.stats, capt='Capacidad del conjunto seleccionado')
 
 # ---- Mostrar capacidad del área en cada unidad ----
 plot.capacity.intervals <- function(capacity.stats, unidad){

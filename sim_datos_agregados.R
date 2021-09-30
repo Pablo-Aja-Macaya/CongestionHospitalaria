@@ -58,20 +58,12 @@ areas.hospitales <- data.frame(read_csv("datos/areas_hospitales_correspondencia.
 casos.org <- data.frame(read_csv("datos/sivies_agreg_area_sanitaria.csv")) # casos base
 
 # Para crear buenas tablas
-create.table <- function(df, capt){
-  DT::datatable(df, extensions = c('FixedColumns'),
-                options = list(scrollX = TRUE, paging=TRUE), 
-                caption=htmltools::tags$caption(
-                  style = 'caption-side: bottom; text-align: center; color: black;',
-                  htmltools::em(capt)
-                ))
-}
-
+source('./common/create_table.R')
 
 
 # ---- Proporción de edades y sexos ---- 
 # Datos completos
-create.table(casos.org, 'Casos y hospitalizados')
+create_table(casos.org, 'Casos y hospitalizados')
 
 filter.cases <- function(df,area){
   # Filtra el dataframe de casos según área sanitaria
@@ -110,11 +102,11 @@ casos.org <- subset(casos.org, grupo_edad!='NULL')
 
 # Casos elegidos
 casos <- filter.cases(casos.org, area.sanitaria)
-create.table(casos, 'Casos elegidos')
+create_table(casos, 'Casos elegidos')
 
 # Hospitalizados en estos casos
 hospitalizados <- subset(casos, estado=='HOS')
-create.table(hospitalizados, 'Hospitalizados')
+create_table(hospitalizados, 'Hospitalizados')
 
 # -- Proporciones de casos -- #
 women.age.interval <- get.group.total(casos, 'M')
@@ -755,11 +747,11 @@ check.hosp.capacity.interactive <- function(hosp, icu, neto, tipo, cap.stats, ti
 }
 
 cambio.neto <- nHOS+nICU-(nDischarge+nDead+nH.Dead+nICU.Dead)
-check.hosp.capacity(nHOS, nICU, cambio.neto, t='Condicional')
+# check.hosp.capacity(nHOS, nICU, cambio.neto, t='Condicional')
 check.hosp.capacity.interactive(nHOS, nICU, cambio.neto, 'Condicional', area.capacity.stats, time=n.time)
 
 cambio.neto <- nHOS.inc+nICU.inc-(nDischarge.inc+nDead.inc+nH.Dead.inc+nICU.inc.Dead)
-check.hosp.capacity(nHOS.inc, nICU.inc, cambio.neto, t='No condicional')
+# check.hosp.capacity(nHOS.inc, nICU.inc, cambio.neto, t='No condicional')
 check.hosp.capacity.interactive(nHOS, nICU, cambio.neto, 'Condicional', area.capacity.stats, time=n.time)
 
 
