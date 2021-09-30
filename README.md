@@ -21,7 +21,7 @@ Este repositorio contiene la adaptación del modelo de simulación estadística 
 
 Cada individuo va cambiando de estado a lo largo de la simulación según unas probabilidades calculadas a partir de datos reales. Esto puede ser útil para estimar el número de camas necesario en caso de brotes grandes de COVID-19. El sistema permite visualizar esto por área sanitaria, conjunto de áreas sanitarias, hospitales y unidades. Además, puede ser adaptado a otras enfermedades con suficientes datos.
 
-El sistema se puede ejecutar por scripts ([sim_datos_agregados.R](sim_datos_agregados.R) y [analisis_capacidad.R](analisis_capacidad.R)), por informe ([Informe_Congestion.Rmd](Informe_Congestion.Rmd)) o mediante una aplicación Shiny ([CongestionHospitalariaApp/app.R](CongestionHospitalariaApp/app.R)).
+El sistema se puede ejecutar por scripts ([sim_datos_agregados.R](sim_datos_agregados.R) y [analisis_capacidad.R](analisis_capacidad.R)) o mediante una aplicación Shiny ([CongestionHospitalariaApp/app.R](CongestionHospitalariaApp/app.R)).
 
 
 ## Aplicación
@@ -65,22 +65,6 @@ Este script sirve para visualizar los análisis de capacidad de cada hospital y 
 > **A tener en cuenta**: Es llamado por `sim_datos_agregados.R`, de tal manera que hay ciertas variables en este script que deben comentarse si se usa `sim_datos_agregados.R`, como `area.sanitaria`, `hosp.ref`, `outlier.filter.type` y `window.size`. Si no se comentan, se sobreescribirán al ejecutar `analisis_capacidad.R`.  
 > 
 > Esto es un compromiso necesario para poder ejecutar `analisis.capacidad.R` por separado.
-
-## Creación de informe
-Así mismo, se puede crear un informe a partir de [Informe_Congestion.Rmd](Informe_Congestion.Rmd). Para su uso apropiado, es necesario tener en cuenta cómo está formado. El archivo llama a otros scripts con la siguiente sintaxis:
-
-```
-{r, include=FALSE, cache=FALSE}
-knitr::read_chunk('sim_datos_agregados.R')
-```
-Esto lee los distintos apartados del script en cuestión, delimitados con `# ---- Apartado ----`. Después, ejecuta cada el apartado indicado por el script con esta sintaxis:
-
-```
-{r, Apartado, echo=TRUE}
-```
-
-Esto reduce la duplicación de código y permite compartimentalizarlo mejor. No obstante, si el nombre de un apartado cambia es necesario cambiarlo también en el `Informe.Rmd`. Además, si el apartado se corta con otro apartado en medio, dará errores.
-
 
 ## Datos y carpetas
 
