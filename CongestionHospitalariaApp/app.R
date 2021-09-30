@@ -637,8 +637,6 @@ server <- function(input, output, session) {
         # Lista para guardar dataframes de cada hospital con la unidad y cuentas
         hospital.capacity.stats <- list()
         
-        capacidad.plots <- list()
-        outliers.plots <- list()
         plot.output.list <- list()
         for (h in hospitales){
             plot.tittle.line <- 1

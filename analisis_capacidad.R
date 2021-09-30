@@ -311,156 +311,49 @@ subplot(plots, margin = 0.04, nrows = 3, shareX=TRUE) %>%
          showlegend = F)
 
 
-# ---- Resultados de cada hospital por unidad ----
-hospital.capacity.stats
+# # ---- Resultados de cada hospital por unidad ----
+# hospital.capacity.stats
 
-# ---- Juntar datos de hospitales para encontrar stats del conjunto ----
-merge.hospital.data <- function(hosp.data, parameter){
-  # Esta función coge una lista de dataframes, cada uno de un hospital, en donde
-  # cada fila es una característica de la capacidad (ej: mediana) y cada columna la 
-  # unidad del hospital. Se hace la suma de esta característica a lo largo de los hospitales
-  res <- bind_rows(lapply(hosp.data, function(df){df[parameter,]}))
-  res <- apply(res,2,sum)
-  res <- as.data.frame(t(res))
-  rownames(res) <- parameter
-  return(res)
-}
-# Se calcula para cada característica, su suma a lo largo de los hospitales
-df_median <- merge.hospital.data(hospital.capacity.stats, 'mediana')
-df_p10 <- merge.hospital.data(hospital.capacity.stats, 'percentil10')
-df_p90 <- merge.hospital.data(hospital.capacity.stats, 'percentil90')
-
-# Se juntan en un df, resumiendo la capacidad del área seleccionada
-area.capacity.stats <- rbind(df_median, df_p10, df_p90)
-create_table(area.capacity.stats, capt='Capacidad del conjunto seleccionado')
-
-# ---- Mostrar capacidad del área en cada unidad ----
-plot.capacity.intervals <- function(capacity.stats, unidad){
-  mediana <- capacity.stats['mediana',unidad]
-  p10 <- capacity.stats['percentil10',unidad]
-  p90 <- capacity.stats['percentil90',unidad]
-  
-  plot(NA, xlim=c(0,100), ylim=c(0,max(capacity.stats[,unidad])+10), main=unidad, ylab='Camas')
-  abline(h=p10, col='red', lty=2)
-  abline(h=p90, col='red', lty=2) 
-  abline(h=mediana, col='blue', lty=1)
-  rect(0-50,p90,
-       100+50,p10,
-       col= rgb(0,0,1.0,alpha=0.1), lwd=0)
-  title(sub=paste('Mediana:', mediana), adj=1, line=2, font=2,cex.sub = 0.75)
-  title(sub=paste('Percentil 10:', p10), adj=1, line=3, font=2,cex.sub = 0.75)
-  title(sub=paste('Percentil 90:', p90), adj=1, line=4, font=2,cex.sub = 0.75)
-}
-
-par(mfrow=c(1,3))
-plot.capacity.intervals(area.capacity.stats,'Hospitalización convencional')
-plot.capacity.intervals(area.capacity.stats,'U. Críticas CON respirador')
-plot.capacity.intervals(area.capacity.stats,'U. Críticas SIN respirador')
-par(mfrow=c(1,1))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# # -- Histograma ----
-# hist(tot, breaks = 30, main=NA, col='gray', xlab='Total camas') 
-# title(sub=paste('Mediana:', mediana), adj=1, line=2, font=2,cex.sub = 0.75)
-# title(sub=paste('Percentil 10:', percentiles[['10%']]), adj=1, line=3, font=2,cex.sub = 0.75)
-# title(sub=paste('Percentil 90:', percentiles[['90%']]), adj=1, line=4, font=2,cex.sub = 0.75)
-# title("Histograma de camas", line = plot.tittle.line)
-# 
-# # -- Plot de número de camas a lo largo de la pandemia ----
-# plot(total_camas ~ fecha_envio, datos, ylim=c(0,max(tot, na.rm=T)+max(tot, na.rm=T)*0.25), xaxt = "n", type = "l", main=NA, xlab=NA, ylab='Camas')
-# # Columnas rojas (días donde se sobrepasa una de las estadísticas)
-# # Cuanto más rojizas más gravedad
-# for (d in min.sobrepasado){
-#   rect(d-1, 0-20,
-#        d+1, max(tot, na.rm=T)+80,
-#        col= rgb(1,0,0,alpha=0.05), lwd=0)      
+# # ---- Juntar datos de hospitales para encontrar stats del conjunto ----
+# merge.hospital.data <- function(hosp.data, parameter){
+#   # Esta función coge una lista de dataframes, cada uno de un hospital, en donde
+#   # cada fila es una característica de la capacidad (ej: mediana) y cada columna la 
+#   # unidad del hospital. Se hace la suma de esta característica a lo largo de los hospitales
+#   res <- bind_rows(lapply(hosp.data, function(df){df[parameter,]}))
+#   res <- apply(res,2,sum)
+#   res <- as.data.frame(t(res))
+#   rownames(res) <- parameter
+#   return(res)
 # }
-# for (d in max.sobrepasado){
-#   rect(d-1, 0-20,
-#        d+1, max(tot, na.rm=T)+80,
-#        col= rgb(1,0,0,alpha=0.3), lwd=0)      
-# }
-# for (d in median.sobrepasado){
-#   rect(d-1, 0-20,
-#        d+1, max(tot, na.rm=T)+80,
-#        col= rgb(1,0,0,alpha=0.15), lwd=0)      
-# }
-# # Área entre percentil10 y percentil90
-# rect(fechas[1]-20,percentiles[['10%']],
-#      fechas[length(fechas)]+20,percentiles[['90%']],
-#      col= rgb(0,0,1,alpha=0.05), lwd=0)
-# # Datos de ocupación
-# lines(ocupadas_no_covid19 ~ fecha_envio, datos, type="l",lty=1, lwd=1, col='blue')
-# lines(ocupadas_covid19 ~ fecha_envio, datos, type="l",lty=1, lwd=1, col='red')
-# lines(total_ocupadas ~ fecha_envio, datos, type="l",lty=1, lwd=1, col='green')
-# abline(h=mediana, col='darkorchid', lty=1)
-# # abline(h=percentiles[['10%']], col='deeppink', lty=5)
-# # abline(h=percentiles[['90%']], col='darkslateblue', lty=5)
+# # Se calcula para cada característica, su suma a lo largo de los hospitales
+# df_median <- merge.hospital.data(hospital.capacity.stats, 'mediana')
+# df_p10 <- merge.hospital.data(hospital.capacity.stats, 'percentil10')
+# df_p90 <- merge.hospital.data(hospital.capacity.stats, 'percentil90')
 # 
-# axis.Date(1, at=seq(min(fechas), max(fechas), length.out=10), format='%b %Y', las=2, cex.axis=0.8)    
-# legend('topright',legend = c('Total camas','Total ocupadas','Ocupadas por COVID','Ocupadas por no COVID','Mediana total camas'), 
-#        col = c("black","green", "red", "blue", "darkorchid"), lwd = 2, xpd = TRUE, cex = 0.5, bty = 'n')
-# 
-# title("Total de camas", line = plot.tittle.line)
-# 
-# # -- Plot de porcentaje de ocupación a lo largo de la pandemia ----
-# ocupados.covid.pct <- (datos$ocupadas_covid19/datos$total_camas)*100
-# ocupados.nocovid.pct <- (datos$ocupadas_no_covid19/datos$total_camas)*100
-# ocupados.total.pct <- ((datos$ocupadas_covid19+datos$ocupadas_no_covid19)/datos$total_camas)*100
-# df.ocupados.pct <- data.frame(ocupados.covid.pct, ocupados.nocovid.pct, ocupados.total.pct, fecha_envio=datos$fecha_envio)
-# 
-# plot(ocupados.covid.pct ~ fecha_envio, df.ocupados.pct, ylim=c(0,100), xaxt = "n", type = "l", main=NA, xlab=NA, ylab='Ocupación (%)', col='red')
-# 
-# add.risk.scale = function(u){
-#   # https://www.mscbs.gob.es/profesionales/saludPublica/ccayes/alertasActual/nCov/documentos/Actuaciones_respuesta_COVID_26.03.2021.pdf
-#   # Dependiendo de la unidad el porcentaje de ocupación es más o menos preocupante
-#   if (u %in% c('Hospitalización convencional')){
-#     risks <- data.frame(nueva.normalidad = c(-10,2), bajo = c(2,5),
-#                         medio = c(5,10), alto = c(10,15), muy.alto = c(15,110))
-#   } else if (u %in% c('U. Críticas CON respirador','U. Críticas SIN respirador')){
-#     risks <- data.frame(nueva.normalidad = c(0,5), bajo = c(5,10),
-#                         medio = c(10,15), alto = c(15,25), muy.alto = c(25,110))
-#   } else {return(NULL)}
-#   # Se añade el color a cada nivel
-#   risk.alpha <- 0.1
-#   risks <- rbind(risks, c(rgb(0,1,0,alpha=risk.alpha), rgb(1,1,0,alpha=risk.alpha),
-#                           rgb(1,0.7,0,alpha=risk.alpha), rgb(1,0,1,alpha=risk.alpha),
-#                           rgb(1,0,0,alpha=risk.alpha)))
-#   # Dibujo de áreas de riesgo en el color correspondiente
-#   apply(risks, 2, function(l){
-#     rect(fechas[1]-50, l[1],
-#          fechas[length(fechas)]+50, l[2],
-#          col= l[3], lwd=0.08)   
-#     
-#   })
-#   # Datos se ponen ahora para pisar los cuadros de color
-#   lines(ocupados.covid.pct ~ fecha_envio, df.ocupados.pct, type="l",lty=1, lwd=1, col='red')
-#   lines(ocupados.nocovid.pct ~ fecha_envio, df.ocupados.pct, type="l",lty=1, lwd=1, col='blue')
-#   lines(ocupados.total.pct ~ fecha_envio, df.ocupados.pct, type="l",lty=1, lwd=1, col='green')
+# # Se juntan en un df, resumiendo la capacidad del área seleccionada
+# area.capacity.stats <- rbind(df_median, df_p10, df_p90)
+# create_table(area.capacity.stats, capt='Capacidad del conjunto seleccionado')
+
+# # ---- Mostrar capacidad del área en cada unidad ----
+# plot.capacity.intervals <- function(capacity.stats, unidad){
+#   mediana <- capacity.stats['mediana',unidad]
+#   p10 <- capacity.stats['percentil10',unidad]
+#   p90 <- capacity.stats['percentil90',unidad]
 #   
+#   plot(NA, xlim=c(0,100), ylim=c(0,max(capacity.stats[,unidad])+10), main=unidad, ylab='Camas')
+#   abline(h=p10, col='red', lty=2)
+#   abline(h=p90, col='red', lty=2) 
+#   abline(h=mediana, col='blue', lty=1)
+#   rect(0-50,p90,
+#        100+50,p10,
+#        col= rgb(0,0,1.0,alpha=0.1), lwd=0)
+#   title(sub=paste('Mediana:', mediana), adj=1, line=2, font=2,cex.sub = 0.75)
+#   title(sub=paste('Percentil 10:', p10), adj=1, line=3, font=2,cex.sub = 0.75)
+#   title(sub=paste('Percentil 90:', p90), adj=1, line=4, font=2,cex.sub = 0.75)
 # }
-# add.risk.scale(u)
 # 
-# axis.Date(1, at=seq(min(fechas), max(fechas), length.out=10), format='%b %Y', las=2, cex.axis=0.8)   
-# 
-# legend('topright',legend = c('Total ocupadas','Ocupadas por COVID','Ocupadas por no COVID'), 
-#        col = c("green", "red", "blue"), lwd = 2, xpd = TRUE, cex = 1, bty = 'n')
-# 
-# title("Porcentaje de ocupación", line = plot.tittle.line)
-# 
-# title(glue('{h} \n({u})'), line = -3, outer = TRUE) # título general (hospital y unidad)
+# par(mfrow=c(1,3))
+# plot.capacity.intervals(area.capacity.stats,'Hospitalización convencional')
+# plot.capacity.intervals(area.capacity.stats,'U. Críticas CON respirador')
+# plot.capacity.intervals(area.capacity.stats,'U. Críticas SIN respirador')
+# par(mfrow=c(1,1))
