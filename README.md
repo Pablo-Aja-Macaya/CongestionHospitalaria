@@ -95,7 +95,6 @@ Este es el árbol de carpetas necesario para que todo funcione bien (se pone par
 │   ├── org\
 │   │   ├── SERGASCOVID_05_11.RData\
 │   ├── sivies_agreg_area_sanitaria.csv\
-├── Informe_Congestion.Rmd\
 ├── README.md\
 ├── sim_datos_agregados.R\
 └── weibull_parameters.R
@@ -104,7 +103,6 @@ Este es el árbol de carpetas necesario para que todo funcione bien (se pone par
 
 * `analisis_capacidad.R`: Incluye el código necesario para analizar la capacidad de cada hospital y del conjunto de hospitales mediante el uso de gráficas. La definición de las gráficas se encuentra en `common/graficas.R`.
 * `sim_datos_agregados.R`: Script principal en el que se sitúa la preparación de datos de casos/hospitalizados y las simulaciones.
-* `Informe_Congestion.Rmd`: Informe automático parametrizado para ejecutar todo el proceso en conjunto, obteniendo un informe en HTML interactivo.
 * `common/`: Incluye funciomnes comunes entre varias partes del repositorio, como pueden ser la definición de gráficas.
 * `CongestionHospitalariaApp/`: Aquí reside la aplicación de Shiny, siendo `app.R` el script principal. Además, incluye la carpeta `www/`, que almacena las imágenes e iconos de la aplicación (su nombre debe ser así) y `translations/`, que incluye un diccionario de traducciones entre idiomas para la aplicación.
 * `datos/`: Carpeta donde se almacenan los datos de capacidad, Weibull y casos/hospitalizaciones. Los archivos necesarios son:
